@@ -99,6 +99,7 @@
   const renderFleet = (data) => {
     if (!fleetGrid || !fleetMeta) return;
     lastFleet = data;
+    renderTopology(data);
     if (mFleet) mFleet.innerHTML = data.running + '/' + data.total + ' <span>aktiv</span>';
     if (data.nodes) renderNodes(data.nodes);
     fleetGrid.textContent = '';
@@ -165,6 +166,86 @@
       .then(renderHealth)
       .catch(() => { healthBoard.textContent = 'health-checks nicht erreichbar.'; });
   }
+
+  /* ---------- Live-Netzwerk-Topologie ---------- */
+  const topoEl = document.getElementById('topo');
+  const renderTopology = (data) => {
+    if (!topoEl || !data || !data.nodes) return;
+
+    topoEl.textContent = '';
+
+    /* Öffentliche Kette: von außen bis in den Cluster */
+    const chain = document.createElement('div');
+    chain.className = 'topo-chain';
+    const steps = [
+      { t: 'internet', s: 'besucher' },
+      { t: 'cloudflare edge', s: 'dns · tls 1.3' },
+      { t: 'tunnel', s: 'abgehend · 0 offene ports' },
+      { t: 'nginx', s: 'security-header' },
+      { t: 'cluster', s: data.running + '/' + data.total + ' aktiv' }
+    ];
+    steps.forEach((st, i) => {
+      const pill = document.createElement('span');
+      pill.className = 'topo-pill' + (i === steps.length - 1 ? ' core' : '');
+      pill.innerHTML = '<strong>' + esc(st.t) + '</strong><em>' + esc(st.s) + '</em>';
+      chain.append(pill);
+      if (i < steps.length - 1) {
+        const link = document.createElement('span');
+        link.className = 'topo-link';
+        link.setAttribute('aria-hidden', 'true');
+        chain.append(link);
+      }
+    });
+    topoEl.append(chain);
+
+    /* Backbone + Knoten-Spalten mit Gästen (live) */
+    const MAX_CHIPS = 12;
+    const spine = document.createElement('div');
+    spine.className = 'topo-spine';
+    spine.innerHTML = '<span>vmbr0 — intern · zonenkonzept: erlaubt ist, was explizit erlaubt ist</span>';
+    topoEl.append(spine);
+
+    const grid = document.createElement('div');
+    grid.className = 'topo-nodes';
+    for (const n of data.nodes) {
+      const col = document.createElement('div');
+      col.className = 'topo-node' + (n.status === 'online' ? '' : ' off');
+      const guests = data.guests
+        .filter((g) => g.node === n.name)
+        .sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name)
+          : a.status === 'running' ? -1 : 1));
+      const up = guests.filter((g) => g.status === 'running').length;
+
+      const head = document.createElement('div');
+      head.className = 'topo-node-head';
+      head.innerHTML = '<span class="dot ' + (n.status === 'online' ? 'up' : 'down') + '"></span>'
+        + '<strong>' + esc(n.name) + '</strong>'
+        + '<span class="topo-count">' + up + '/' + guests.length + '</span>';
+      col.append(head);
+
+      const list = document.createElement('div');
+      list.className = 'topo-guests';
+      guests.slice(0, MAX_CHIPS).forEach((g) => {
+        const chip = document.createElement('span');
+        chip.className = 'topo-chip' + (g.status === 'running' ? '' : ' stopped');
+        chip.title = (g.type === 'lxc' ? 'container' : 'vm') + ' · ' + g.node
+          + ' · ' + (g.status === 'running' ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped');
+        chip.innerHTML = '<span class="dot ' + (g.status === 'running' ? 'up' : 'down') + '"></span>'
+          + '<span class="topo-chip-name">' + esc(g.name) + '</span>'
+          + '<span class="topo-chip-type">' + (g.type === 'lxc' ? 'ct' : 'vm') + '</span>';
+        list.append(chip);
+      });
+      if (guests.length > MAX_CHIPS) {
+        const more = document.createElement('span');
+        more.className = 'topo-more';
+        more.textContent = '+' + (guests.length - MAX_CHIPS) + ' weitere';
+        list.append(more);
+      }
+      col.append(list);
+      grid.append(col);
+    }
+    topoEl.append(grid);
+  };
 
   /* ---------- KI-Chat (Ollama) + Stimme ---------- */
   const chatState = { history: [], busy: false, voice: false };
