@@ -64,6 +64,13 @@
     return m + ' min';
   };
   const fmtGb = (bytes) => Math.round(bytes / (1024 * 1024 * 1024)) + ' GB';
+  // bytes/s → kompakt (unter 1 KB/s → null, nicht anzeigen)
+  const fmtRate = (b) => {
+    if (!b || b < 1024) return null;
+    if (b < 1048576) return Math.round(b / 1024) + 'K';
+    if (b < 1073741824) return (b / 1048576).toFixed(1) + 'M';
+    return (b / 1073741824).toFixed(1) + 'G';
+  };
 
   const pctClass = (p) => p >= 90 ? 'crit' : p >= 65 ? 'hot' : '';
 
@@ -218,8 +225,10 @@
 
       const head = document.createElement('div');
       head.className = 'topo-node-head';
+      const netTot = '↓' + (fmtRate(n.netIn) || '0') + ' ↑' + (fmtRate(n.netOut) || '0');
       head.innerHTML = '<span class="dot ' + (n.status === 'online' ? 'up' : 'down') + '"></span>'
         + '<strong>' + esc(n.name) + '</strong>'
+        + '<span class="topo-count" title="netz ø pro knoten (rate über 45 s)">' + esc(netTot) + '</span>'
         + '<span class="topo-count">' + up + '/' + guests.length + '</span>';
       col.append(head);
 
@@ -228,10 +237,16 @@
       guests.slice(0, MAX_CHIPS).forEach((g) => {
         const chip = document.createElement('span');
         chip.className = 'topo-chip' + (g.status === 'running' ? '' : ' stopped');
+        const rIn = fmtRate(g.netIn), rOut = fmtRate(g.netOut);
+        const netTxt = (rIn || rOut)
+          ? ' · ' + (rIn ? '↓' + rIn : '') + (rOut ? (rIn ? ' ' : '') + '↑' + rOut : '') + '/s'
+          : '';
         chip.title = (g.type === 'lxc' ? 'container' : 'vm') + ' · ' + g.node
-          + ' · ' + (g.status === 'running' ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped');
+          + ' · ' + (g.status === 'running' ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped')
+          + netTxt.replace(' · ', ' · netz ');
         chip.innerHTML = '<span class="dot ' + (g.status === 'running' ? 'up' : 'down') + '"></span>'
           + '<span class="topo-chip-name">' + esc(g.name) + '</span>'
+          + (netTxt ? '<span class="topo-chip-net">' + esc(netTxt.replace(' · ', '')) + '</span>' : '')
           + '<span class="topo-chip-type">' + (g.type === 'lxc' ? 'ct' : 'vm') + '</span>';
         list.append(chip);
       });
@@ -245,6 +260,45 @@
       grid.append(col);
     }
     topoEl.append(grid);
+
+    /* Bekannte Abhängigkeiten — manuell gepflegt, Status live */
+    const FLOWS = [
+      { from: 'proxy-manager', to: 'erdi-ws', via: 'ingress · liga' },
+      { from: 'proxy-manager', to: 'portfolio-ws', via: 'ingress · diese seite' },
+      { from: 'proxy-manager', to: 'cloud-storage', via: 'ingress · cloud.*' },
+      { from: 'erdi-ws', to: 'prod-db', via: 'mysql · liga' },
+      { from: 'loren-shop', to: 'prod-db', via: 'mysql · shop' },
+      { from: 'portfolio-ws', to: 'media', via: 'ollama-api · ki-chat' },
+      { from: 'portfolio-ws', to: 'prox1', via: 'pve cluster-api · fleet' },
+      { from: 'truenas', to: 'cloud-storage', via: 'cifs · nextcloud-storage' },
+      { from: 'monitoring', to: 'alle knoten', via: 'prometheus · scrape' },
+      { from: 'adguard', to: 'alle gäste', via: 'dns · auflösung' },
+      { from: 'uptime-kuma', to: 'alle gäste', via: 'ping · erreichbarkeit' }
+    ];
+    const findGuest = (name) => data.guests.find((g) => g.name === name);
+    const flows = document.createElement('div');
+    flows.className = 'topo-flows';
+    const flowsHead = document.createElement('div');
+    flowsHead.className = 'topo-flows-head';
+    flowsHead.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
+      + '<em>manuell gepflegt · status live — echte flow-messung gibt es im flachen l2-netz nicht</em>';
+    flows.append(flowsHead);
+    for (const f of FLOWS) {
+      const row = document.createElement('div');
+      row.className = 'topo-flow';
+      const a = findGuest(f.from);
+      const bNode = data.nodes.find((n) => n.name === f.to);
+      const b = findGuest(f.to) || (bNode ? { status: bNode.status === 'online' ? 'running' : 'stopped', type: 'node' } : null);
+      const dotCls = (x) => x ? (x.status === 'running' ? 'up' : 'down') : '';
+      row.innerHTML = '<span class="dot ' + dotCls(a) + '"></span>'
+        + '<span class="topo-flow-name">' + esc(f.from) + '</span>'
+        + '<span class="topo-flow-arrow">→</span>'
+        + '<span class="dot ' + dotCls(b) + '"></span>'
+        + '<span class="topo-flow-name">' + esc(f.to) + '</span>'
+        + '<span class="topo-flow-via">' + esc(f.via) + '</span>';
+      flows.append(row);
+    }
+    topoEl.append(flows);
   };
 
   /* ---------- KI-Chat (Ollama) + Stimme ---------- */
