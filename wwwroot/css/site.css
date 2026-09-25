@@ -212,6 +212,13 @@ h2::before { content: '## '; color: var(--accent); }
 .pill.beta { color: var(--amber); border-color: #6b5518; background: rgba(227, 179, 65, .07); }
 .card h3 { margin: 0 0 3px; font-size: 19px; }
 .tagline { font-family: var(--mono); color: var(--dim); font-size: 12.5px; margin: 0 0 15px; }
+.card-shot {
+  width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover;
+  border: 1px solid var(--border); border-radius: 8px;
+  margin: 2px 0 12px; display: block;
+  transition: border-color .25s;
+}
+.card:hover .card-shot { border-color: var(--accent-dim); }
 .facts { margin: 0 0 15px; padding: 0; list-style: none; flex: 1; }
 .facts li { margin-bottom: 7px; padding-left: 18px; position: relative; font-size: 14.5px; }
 .facts li::before { content: '▸'; position: absolute; left: 0; color: var(--accent); font-size: 12px; }
