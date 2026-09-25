@@ -1,0 +1,18 @@
+# Diese Dateien laufen auf Linux-Knoten: `meter.py` über ihren Shebang
+# (systemd ExecStart), die Unit über systemd selbst, cpu-check.sh über sh.
+#
+# Der Rechner, auf dem sie entstehen, hat `core.autocrlf=true`. Ohne diese Zeilen
+# schreibt ein Checkout CRLF in die Arbeitskopie — und ein `\r` im Shebang macht
+# den Dienst mit einem „bad interpreter"-Fehler unstartbar, der nicht nach einem
+# Zeilenende aussieht. Ein `scp` aus der Arbeitskopie würde den Fehler auf alle
+# drei Knoten tragen.
+#
+# Erzwungen wird LF, nicht „text" allein: `text` normalisiert nur beim Ein- und
+# Auschecken, `eol=lf` legt die Richtung fest.
+*.py      text eol=lf
+*.sh      text eol=lf
+*.service text eol=lf
+*.md      text eol=lf
+
+# Reine Testdaten für `--pcap`; ein Zeilenende ist hier ohne Bedeutung.
+*.pcap    binary

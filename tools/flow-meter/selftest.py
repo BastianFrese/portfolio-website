@@ -107,7 +107,7 @@ def cli_wiring(parser) -> list[str]:
     """Die Optionen, die keinen rohen String erwarten, müssen konvertiert ankommen.
 
     `--exclude` war genau hier kaputt: `parse_exclude` war geschrieben, aber nie
-    verdrahtet, also kam der rohe String `192.168.100.24:5000` in `Window.add()`
+    verdrahtet, also kam der rohe String `<knoten-ip>:5000` in `Window.add()`
     an und riss beim Entpacken `ex_ip, ex_port = self._exclude` **jedes** Paket ab
     — der Leser startete endlos neu, tcpdump starb im Takt, und gepusht wurde nie
     etwas. Unbemerkt blieb es, weil der 15-Minuten-Diagnoselauf `--dump` ohne

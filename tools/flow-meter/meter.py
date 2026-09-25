@@ -120,9 +120,14 @@ def _offer(messages: queue.Queue, payload: dict) -> None:
 def spawn_tcpdump(iface: str, extra: Optional[list] = None) -> subprocess.Popen:
     # Kein `-p`: nur im Promiscuous Mode sieht die Bridge fremde Frames.
     # `-U` puffert paketweise, `-s 96` reicht für Ethernet+IPv4+Ports (max. 86).
-    cmd = ["tcpdump", "-i", iface, "-n", "-U", "-s", str(SNAPLEN), "-w", "-", "ip"]
+    cmd = ["tcpdump", "-i", iface, "-n", "-U", "-s", str(SNAPLEN), "-w", "-"]
     if extra:
+        # **Vor** dem Filterausdruck einfügen. Dahinter wäre `-Z root` Teil des
+        # Filters („ip -Z root") und tcpdump bräche mit einem Syntaxfehler ab —
+        # der Schalter hieß „--tcpdump-arg", war dort für Optionen also
+        # unbrauchbar.
         cmd += extra
+    cmd.append("ip")
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
@@ -206,6 +211,16 @@ def run(args, peers: Peers, messages: queue.Queue, stop: threading.Event) -> int
                         dropped = 0
                         sent += 1
                         attempt = 0
+                        # Lebenszeichen **unbedingt**, nicht nur unter `--dump`.
+                        _beat(
+                            counts,
+                            boundary - args.window,
+                            boundary,
+                            sent,
+                            window_dropped,
+                            truncated,
+                            messages.qsize(),
+                        )
                         _dump(
                             counts,
                             boundary - args.window,
@@ -230,6 +245,15 @@ def run(args, peers: Peers, messages: queue.Queue, stop: threading.Event) -> int
             warn(f"Leser neu starten ({type(exc).__name__}: {exc})")
         finally:
             _stop_process(process)
+
+        # Endet tcpdump von selbst, ist sein stderr die einzige Spur. Diese
+        # Zeilen wurden bisher nur nach Kernel-Verlusten durchsucht und danach
+        # verworfen — dadurch sah jeder Startfehler identisch aus („neu in 1s")
+        # und die Ursache war nicht zu sehen. Genau daran hing die Fehlersuche,
+        # als der Meter zum ersten Mal als systemd-Dienst lief.
+        if not stop.is_set() and stderr_lines:
+            for line in stderr_lines[:10]:
+                warn(f"tcpdump: {line}")
 
         # Teilfenster verwerfen: tcpdump endete mitten im Fenster
         if not window.is_empty():
@@ -258,6 +282,28 @@ def _stop_process(process: subprocess.Popen) -> None:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
         process.kill()
+
+
+def _beat(counts: dict, w_from: float, w_to: float, index: int,
+          dropped: int, truncated: int, queued: int) -> None:
+    """Ein Satz je Fenster — **unbedingt**, nicht nur unter `--dump`.
+
+    Ohne diese Zeile schweigt ein gesund laufender Meter nach der Startzeile
+    vollständig, und im Journal sieht „läuft" genauso aus wie „hängt": der Leser
+    kann in `read()` blockieren, ohne dass tcpdump stirbt, und `warn` feuert nur
+    bei Fehlern, nicht bei Stille. Für einen systemd-Dienst ist das die einzige
+    Lebenszeichen-Zeile, die es überhaupt gibt.
+
+    `queued` ist das Frühwarnzeichen: bleibt der Sender hängen, füllt sich die
+    Warteschlange (Grenze 4), und das ist hier zu sehen, **bevor** Fenster
+    verworfen werden.
+    """
+    span = max(w_to - w_from, 1.0)
+    total = int(sum(s[0] for s in counts.values()) / span)
+    info(
+        f"fenster #{index} {iso(w_from)} · {len(counts)} paare · {total} B/s · "
+        f"{dropped} verworfen · {truncated} abgeschnitten · {queued} in der schlange"
+    )
 
 
 def _dump(counts: dict, w_from: float, w_to: float, args, dropped: int = 0,

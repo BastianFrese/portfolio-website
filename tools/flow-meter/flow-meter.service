@@ -1,0 +1,82 @@
+[Unit]
+Description=flow-meter — echter Traffic-Messpunkt an der Knoten-Bridge
+Documentation=file:/opt/flow-meter/README.md
+# Nach dem Netz, nicht davor: der Push geht an die Portfolioseite.
+After=network-online.target
+Wants=network-online.target
+# Ein Konfigurationsfehler (fehlendes Secret, falscher Pfad) ist kein
+# vorübergehender Fehler. Ohne diese Grenze startet systemd alle 10 s neu und
+# schreibt dieselbe Meldung endlos ins Journal — die eigentliche Ursache
+# verschwindet dann in der Flut. Nach 5 Fehlern in 5 Minuten bleibt der Dienst
+# sichtbar auf `failed` stehen; das ist der ehrliche Zustand.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+
+# ⚠️ Die Werte DIESES Knotens stehen nicht hier, sondern in der lokalen Datei
+#    /etc/flow-meter/flow-meter.env  (Mode 600):
+#        FLOW_METER_NODE=<knotenname, muss in Flows:Nodes der App stehen>
+#        FLOW_METER_URL=http://<app>:5000/api/flows/ingest
+#        FLOW_METER_SECRET_FILE=/etc/flow-meter/secret
+#        FLOW_METER_EXCLUDE=<eigene-knoten-ip>:5000   ← sonst misst der Meter
+#                                                        seinen eigenen Push
+#    Damit trägt diese Unit keine LAN-Adresse — dieselbe Regel wie im Programm,
+#    in dem bewusst keine Adresse steht (siehe Modul-Docstring). Die drei Knoten
+#    unterscheiden sich ausschließlich in dieser lokalen Datei.
+#
+# ⚠️ Das Programm liegt unter /opt/flow-meter, NICHT unter /root: `ProtectHome`
+#    unten macht /root für den Dienst leer, und der Fehler sieht dann aus wie
+#    ein fehlendes Programm statt wie eine Härtungseinstellung.
+#
+# `-Z root` ist Absicht und die **kleinere** Exposition, nicht die größere:
+#   Debian-tcpdump ist weder setuid noch mit Datei-Capabilities ausgestattet.
+#   Es startet als root und wechselt nach dem Öffnen des Sockets auf den
+#   Benutzer `tcpdump` (uid 102) — dafür braucht es CAP_SETUID/CAP_SETGID/
+#   CAP_CHOWN. Genau das schlug unter dieser Unit fehl („Couldn't change to
+#   'tcpdump' uid=102 gid=103: Operation not permitted"): CAP_SETUID stand im
+#   `CapBnd` (0x30cd), fehlte aber in `CapEff` (0x304d) — Differenz genau 0x80.
+#   Dieser Rechteabfall schützt hier aber nichts: tcpdump läuft mit `-w -`,
+#   **zerschneidet also keine Pakete**, sondern schreibt rohe Bytes, und die
+#   Auswertung passiert danach im Meter-Prozess, der ohnehin root ist. Ein
+#   Abfall für den einen Teil, während der andere root bleibt, ist Theater —
+#   er kostete vier zusätzliche Capabilities. Mit `-Z root` bleibt der Satz
+#   unten auf vier beschränkt.
+EnvironmentFile=/etc/flow-meter/flow-meter.env
+ExecStart=/opt/flow-meter/meter.py --iface vmbr0 --window 45 --tcpdump-arg=-Z --tcpdump-arg=root
+
+Restart=always
+RestartSec=10
+
+# root ist nötig: AF_PACKET im Promiscuous Mode (ohne `-p`, sonst sieht die
+# Bridge keine fremden Frames). Der Capability-Satz unten wiegt das teilweise auf.
+User=root
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+# AF_PACKET ist die eine Familie, ohne die tcpdump nicht startet — fehlt sie,
+# sieht der Fehler nach „keine Pakete" aus, nicht nach einem Rechteproblem.
+# AF_UNIX/AF_NETLINK braucht die Namensauflösung, AF_INET den Push.
+RestrictAddressFamilies=AF_PACKET AF_INET AF_UNIX AF_NETLINK
+# Nur das, was wirklich gebraucht wird: NET_RAW/NET_ADMIN zum Mitschneiden,
+# DAC_* um die Gast-Configs unter /etc/pve zu lesen. Kein SETUID/SETGID/CHOWN/
+# FOWNER — die Begründung steht bei `-Z root` oben.
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+
+# Macht `/` read-only. Der Meter schreibt nichts, er liest nur — und die frühere
+# Sorge galt /etc/pve (pmxcfs, FUSE): das ist eine **eigene** Einbindung, ein
+# read-only-Remount von `/` berührt sie nicht.
+# Am 2026-09-26 auf allen drei Knoten gleichzeitig aktiviert und mit laufendem
+# Herzschlag bestätigt (prox1/prox/pve, je `fenster #1`, 0 verworfen). Unit und
+# Realität sind damit deckungsgleich. Startet der Dienst hier nicht, ist DAS die
+# Zeile — nicht das Programm.
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
