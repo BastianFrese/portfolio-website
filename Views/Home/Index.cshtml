@@ -183,14 +183,14 @@
     <div class="wrap">
       <div class="section-head reveal">
         <h2>fleet — live aus dem rack</h2>
-        <p class="section-sub">Alle VMs und LXCs aus dem 3-Knoten-Cluster, direkt aus der Proxmox-API gelesen. Der Status ist echt — was du siehst, ist der Zustand, in dem sich meine Systeme gerade wirklich befinden.</p>
+        <p class="section-sub">Alle VMs und LXCs aus dem 3-Knoten-Cluster, direkt aus der Proxmox-API gelesen. Der Status ist echt — was du siehst, ist der Zustand, in dem sich meine Systeme gerade wirklich befinden. Die Traffic-Raten in der Topologie darunter sind ebenfalls gemessen und nicht geschätzt: ein passiver Mitschnitt an den Bridges der Knoten.</p>
       </div>
       <p id="fleet-meta" class="fleet-meta reveal">fleet wird geladen …</p>
       <div id="topo" class="topo reveal" aria-label="Live-Netzwerk-Topologie"></div>
       <div id="node-stats" class="node-stats reveal"></div>
       <div id="fleet-grid" class="fleet-grid reveal">
       </div>
-      <p class="term-hint reveal">quelle: proxmox-ve cluster-api · cache 45 s · gestoppte systeme werden ehrlich als gestoppt angezeigt</p>
+      <p class="term-hint reveal">quelle: proxmox-ve cluster-api · cache 45 s · gestoppte systeme werden ehrlich als gestoppt angezeigt · flow-raten: mitschnitt an den knoten-bridges, gemessen statt geschätzt</p>
     </div>
   </section>
 

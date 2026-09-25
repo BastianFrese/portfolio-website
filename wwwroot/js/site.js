@@ -3,7 +3,13 @@
   'use strict';
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  // `"` und `>` fehlten: ohne `"` ist jeder Attributwert eine Lücke, und
+  // ohne `>` lässt sich ein Tag nicht sauber schließen. `String(s)` davor,
+  // weil `s.replace` bei einer Zahl wirft — der Aufruf, der das auslöst,
+  // wäre weit weg von der Ursache.
+  const esc = (s) => String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   /* ---------- Scroll-Reveal ---------- */
   const revealEls = document.querySelectorAll('.reveal');
@@ -174,6 +180,248 @@
       .catch(() => { healthBoard.textContent = 'health-checks nicht erreichbar.'; });
   }
 
+  /* ---------- Echte Flow-Messung (Raten aus den Knoten-Bridges) ---------- */
+  // Zwei Werte, die hier nie verwechselt werden dürfen:
+  //   null → „in diesem Slot nicht gemessen"  →  `—`
+  //   0    → „gemessen, und da war nichts"    →  `0`
+  // Die kuratierte Liste beschreibt die Architektur; die Raten kommen aus der
+  // Messung. Was nicht gemessen wurde, steht als `—` da — nicht als 0.
+  let lastFlows = null;
+
+  /* Kuratierte Abhängigkeiten. `prox`, nicht `prox1`: die Fleet-API wird von
+     `.23` geholt (Phase-0-Befund) — mit `prox1` bliebe die Zeile für immer `—`
+     und würde den falschen Empfänger nennen. */
+  const FLOWS = [
+    { from: 'proxy-manager', to: 'erdi-ws', via: 'ingress · liga' },
+    { from: 'proxy-manager', to: 'portfolio-ws', via: 'ingress · diese seite' },
+    { from: 'proxy-manager', to: 'cloud-storage', via: 'ingress · cloud.*' },
+    { from: 'erdi-ws', to: 'prod-db', via: 'mysql · liga' },
+    { from: 'loren-shop', to: 'prod-db', via: 'mysql · shop' },
+    { from: 'portfolio-ws', to: 'media', via: 'ollama-api · ki-chat' },
+    { from: 'portfolio-ws', to: 'prox', via: 'pve cluster-api · fleet' },
+    { from: 'truenas', to: 'cloud-storage', via: 'cifs · nextcloud-storage' },
+    { from: 'monitoring', to: 'alle knoten', via: 'prometheus · scrape' },
+    { from: 'adguard', to: 'alle gäste', via: 'dns · auflösung' },
+    { from: 'uptime-kuma', to: 'alle gäste', via: 'ping · erreichbarkeit' }
+  ];
+  const AGGREGATE = FLOWS.filter((f) => f.to.indexOf('alle ') === 0).map((f) => f.from);
+
+  const FLOW_EXTRA_MIN = 1024;  // ab 1 KB/s lohnt die Zusatzzeile
+  const FLOW_EXTRA_MAX = 8;     // mehr wäre eine Wand aus mDNS-Einträgen
+
+  // Raten gehen nie durch `esc` (das würde bei einer Zahl werfen) — sie werden
+  // fertig formatiert als `textContent` eingesetzt.
+  const fmtRateFlow = (b) => {
+    if (b === null || b === undefined) return '—';
+    if (b === 0) return '0';
+    return fmtRate(b) || '<1K';
+  };
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const SPARK_W = 64, SPARK_H = 14;
+
+  /* Verlauf über 20 Slots. `null` reißt die Linie auf: eine Lücke im Verlauf
+     ist etwas anderes als ein Wert von 0 — genau dieser Unterschied ist der
+     Zweck der ganzen Messung. Skaliert wird je Zeile; eine gemeinsame Achse
+     würde 700 B/s neben 62 KB/s zu einer geraden Linie plattdrücken.
+     Geometrie über SVG-Attribute, Styling über CSS-Klassen: `style="…"` ist
+     unter `style-src 'self'` wirkungslos. */
+  const sparkSvg = (vals) => {
+    if (!Array.isArray(vals) || vals.length === 0) return null;
+    const seen = vals.filter((v) => typeof v === 'number');
+    if (seen.length === 0) return null;
+    const max = Math.max.apply(null, seen) || 1;
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + SPARK_W + ' ' + SPARK_H);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('class', 'topo-flow-spark');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const xAt = (i) => vals.length === 1 ? SPARK_W / 2 : (i / (vals.length - 1)) * SPARK_W;
+    const yAt = (v) => (SPARK_H - 1) - (v / max) * (SPARK_H - 2);
+
+    let run = [];
+    const flush = () => {
+      if (run.length > 1) {
+        const line = document.createElementNS(SVG_NS, 'polyline');
+        line.setAttribute('points', run.join(' '));
+        svg.append(line);
+      } else if (run.length === 1) {
+        // Ein einzelner Messwert ist ein Punkt, keine Linie.
+        const dot = document.createElementNS(SVG_NS, 'circle');
+        dot.setAttribute('cx', run[0].split(',')[0]);
+        dot.setAttribute('cy', run[0].split(',')[1]);
+        dot.setAttribute('r', '1.5');
+        svg.append(dot);
+      }
+      run = [];
+    };
+    vals.forEach((v, i) => {
+      if (typeof v !== 'number') { flush(); return; }
+      run.push(xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1));
+    });
+    flush();
+    return svg;
+  };
+
+  /* Summe einer Aggregat-Zeile („alle knoten", „alle gäste"). Der Verlauf
+     summiert nur Slots, in denen **alle** beteiligten Paare gemessen haben —
+     eine Teilsumme als Kurve zu zeichnen hieße, eine Zahl zu zeigen, die es
+     so nie gab. */
+  const aggregate = (name, flows) => {
+    const parts = flows.filter((f) => f.from === name || f.to === name);
+    if (parts.length === 0) return null;
+    let total = null;
+    for (const p of parts) {
+      if (typeof p.bytesPerSecond === 'number') total = (total || 0) + p.bytesPerSecond;
+    }
+    const len = Array.isArray(parts[0].spark) ? parts[0].spark.length : 0;
+    const spark = [];
+    for (let i = 0; i < len; i += 1) {
+      spark.push(parts.every((p) => Array.isArray(p.spark) && typeof p.spark[i] === 'number')
+        ? parts.reduce((s, p) => s + p.spark[i], 0)
+        : null);
+    }
+    return { bytesPerSecond: total, spark: spark, count: parts.length };
+  };
+
+  /* Von einer Aggregat-Zeile absorbiert — außer der andere Endpunkt ist
+     `extern` oder unbekannt: fremder Verkehr gehört in den Zusatzblock, nicht
+     unter „prometheus · scrape". */
+  const absorbed = (f) => AGGREGATE.some((name) => {
+    const other = f.from === name ? f.to : (f.to === name ? f.from : null);
+    return other !== null && other !== 'extern' && other !== 'unbekannt-lan';
+  });
+
+  const paintRow = (row, hit, isAgg) => {
+    const alt = row.querySelector('.topo-flow-rate');
+    const altSpark = row.querySelector('.topo-flow-spark');
+    if (altSpark) altSpark.remove();
+    const rate = alt || document.createElement('span');
+    if (!alt) {
+      rate.className = 'topo-flow-rate';
+      row.append(rate);
+    }
+    const leer = !hit || hit.bytesPerSecond === null || hit.bytesPerSecond === undefined;
+    rate.classList.toggle('none', leer);
+    rate.textContent = leer ? '—' : fmtRateFlow(hit.bytesPerSecond);
+    rate.title = leer
+      ? 'in den letzten 15 min keine messung'
+      : (isAgg
+        ? 'summe beider richtungen · ' + hit.count + ' beteiligte paare'
+        : 'gemessen an den knoten-bridges · dienst: ' + hit.service);
+    if (leer) return;
+    const spark = sparkSvg(hit.spark);
+    if (spark) row.append(spark);
+  };
+
+  const renderFlowRows = () => {
+    const box = document.getElementById('topo-flows');
+    if (!box) return;                       // Topologie steht noch nicht
+    const head = document.getElementById('topo-flows-head');
+    const extra = document.getElementById('topo-flows-extra');
+
+    const d = lastFlows;
+    const live = !!d && d.stale !== true;
+    const flows = live && Array.isArray(d.flows) ? d.flows : [];
+
+    // Kanonisch nach IP sortiert — die gesuchte Richtung kann also vertauscht
+    // sein. Deshalb wird in beide Richtungen gesucht.
+    const match = (a, b) => flows.find(
+      (f) => (f.from === a && f.to === b) || (f.from === b && f.to === a)) || null;
+
+    const claimed = [];
+    for (const row of box.querySelectorAll('.topo-flow')) {
+      const a = row.dataset.from, b = row.dataset.to, isAgg = b.indexOf('alle ') === 0;
+      let hit = null;
+      if (live) {
+        hit = isAgg ? aggregate(a, flows) : match(a, b);
+        if (hit && !isAgg) claimed.push(hit.from + '\u0000' + hit.to);
+      }
+      paintRow(row, hit, isAgg);
+    }
+
+    if (head) {
+      if (!d) {
+        head.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
+          + '<em>messung wird geladen …</em>';
+      } else if (!live) {
+        head.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
+          + '<em>keine daten — die messung an den knoten-bridges liefert gerade nichts</em>';
+      } else {
+        // `measuredNodes` bleibt bis zu 15 min nach dem letzten Push gefüllt.
+        // Es ist deshalb **kein** Live-Status und wird nur hier, im nicht-stalen
+        // Zweig, überhaupt genannt.
+        const measured = (d.measuredNodes || []).map((n) => String(n).toLowerCase());
+        const fehlend = ((lastFleet && lastFleet.nodes) ? lastFleet.nodes : [])
+          .map((n) => n.name)
+          .filter((n) => measured.indexOf(String(n).toLowerCase()) < 0);
+        const sek = Math.max(0, Math.round((Date.now() - Date.parse(d.updatedAt)) / 1000));
+        head.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
+          + '<em>live gemessen an den knoten-bridges · stand vor ' + sek + ' s'
+          + ' · messpunkte: ' + esc(measured.join(', ') || 'keine')
+          + (fehlend.length ? ' · ohne messpunkt: ' + esc(fehlend.join(', ')) : '')
+          + '</em>';
+      }
+    }
+
+    if (!extra) return;
+    extra.textContent = '';
+    if (!live) return;
+
+    const taken = new Set(claimed);
+    const rest = flows.filter((f) => {
+      if (taken.has(f.from + '\u0000' + f.to)) return false;
+      if (absorbed(f)) return false;
+      return typeof f.bytesPerSecond === 'number' && f.bytesPerSecond >= FLOW_EXTRA_MIN;
+    }).sort((a, b) => b.bytesPerSecond - a.bytesPerSecond);
+    if (rest.length === 0) return;
+
+    const h2 = document.createElement('div');
+    h2.className = 'topo-flows-head';
+    h2.innerHTML = '<strong>gemessen, aber nicht in der liste</strong><em>'
+      + (rest.length > FLOW_EXTRA_MAX
+        ? 'die ' + FLOW_EXTRA_MAX + ' stärksten von ' + rest.length + ' paaren ab 1 KB/s'
+        : 'alle ' + rest.length + ' paare ab 1 KB/s')
+      + '</em>';
+    extra.append(h2);
+
+    for (const f of rest.slice(0, FLOW_EXTRA_MAX)) {
+      const row = document.createElement('div');
+      row.className = 'topo-flow';
+      const a = document.createElement('span');
+      a.className = 'topo-flow-name';
+      a.textContent = f.from;
+      const arrow = document.createElement('span');
+      arrow.className = 'topo-flow-arrow';
+      arrow.textContent = '→';
+      const b = document.createElement('span');
+      b.className = 'topo-flow-name';
+      b.textContent = f.to;
+      const via = document.createElement('span');
+      via.className = 'topo-flow-via';
+      via.textContent = f.service;
+      const rate = document.createElement('span');
+      rate.className = 'topo-flow-rate';
+      rate.textContent = fmtRateFlow(f.bytesPerSecond);
+      row.append(a, arrow, b, via, rate);
+      const spark = sparkSvg(f.spark);
+      if (spark) row.append(spark);
+      extra.append(row);
+    }
+  };
+
+  // Eigener Takt: `/api/flows` braucht die PVE-API nicht, und die beiden
+  // Endpunkte haben unabhängige Fehlerfälle. Ein Ladefehler ist kein leeres
+  // Netz — beides wird als `keine daten` gezeigt, nicht als Nullzeile.
+  const loadFlows = () => {
+    fetch('/api/flows', { cache: 'no-store' })
+      .then((r) => { if (!r.ok) throw 0; return r.json(); })
+      .then((d) => { lastFlows = d; renderFlowRows(); })
+      .catch(() => { lastFlows = { stale: true, flows: [] }; renderFlowRows(); });
+  };
+
   /* ---------- Live-Netzwerk-Topologie ---------- */
   const topoEl = document.getElementById('topo');
   const renderTopology = (data) => {
@@ -261,31 +509,23 @@
     }
     topoEl.append(grid);
 
-    /* Bekannte Abhängigkeiten — manuell gepflegt, Status live */
-    const FLOWS = [
-      { from: 'proxy-manager', to: 'erdi-ws', via: 'ingress · liga' },
-      { from: 'proxy-manager', to: 'portfolio-ws', via: 'ingress · diese seite' },
-      { from: 'proxy-manager', to: 'cloud-storage', via: 'ingress · cloud.*' },
-      { from: 'erdi-ws', to: 'prod-db', via: 'mysql · liga' },
-      { from: 'loren-shop', to: 'prod-db', via: 'mysql · shop' },
-      { from: 'portfolio-ws', to: 'media', via: 'ollama-api · ki-chat' },
-      { from: 'portfolio-ws', to: 'prox1', via: 'pve cluster-api · fleet' },
-      { from: 'truenas', to: 'cloud-storage', via: 'cifs · nextcloud-storage' },
-      { from: 'monitoring', to: 'alle knoten', via: 'prometheus · scrape' },
-      { from: 'adguard', to: 'alle gäste', via: 'dns · auflösung' },
-      { from: 'uptime-kuma', to: 'alle gäste', via: 'ping · erreichbarkeit' }
-    ];
+    /* Bekannte Abhängigkeiten — kuratiert; die Raten kommen aus der Messung.
+       Der Container hat eine feste id, weil `renderTopology` bei jedem
+       Fleet-Poll alles wegwirft (`topoEl.textContent = ''`) — die Raten werden
+       von `renderFlowRows` aus `lastFlows` nachgetragen. */
     const findGuest = (name) => data.guests.find((g) => g.name === name);
     const flows = document.createElement('div');
     flows.className = 'topo-flows';
+    flows.id = 'topo-flows';
     const flowsHead = document.createElement('div');
     flowsHead.className = 'topo-flows-head';
-    flowsHead.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
-      + '<em>manuell gepflegt · status live — echte flow-messung gibt es im flachen l2-netz nicht</em>';
+    flowsHead.id = 'topo-flows-head';
     flows.append(flowsHead);
     for (const f of FLOWS) {
       const row = document.createElement('div');
       row.className = 'topo-flow';
+      row.dataset.from = f.from;
+      row.dataset.to = f.to;
       const a = findGuest(f.from);
       const bNode = data.nodes.find((n) => n.name === f.to);
       const b = findGuest(f.to) || (bNode ? { status: bNode.status === 'online' ? 'running' : 'stopped', type: 'node' } : null);
@@ -299,7 +539,25 @@
       flows.append(row);
     }
     topoEl.append(flows);
+
+    /* Und der Gegenpol: was gemessen wird, aber in keiner Zeile steht. Ohne
+       diesen Block sähe der Bereich nach einem Umbau *leerer* aus als vorher —
+       dabei zeigt er dann zum ersten Mal etwas Belegtes. */
+    const flowsExtra = document.createElement('div');
+    flowsExtra.className = 'topo-flows';
+    flowsExtra.id = 'topo-flows-extra';
+    topoEl.append(flowsExtra);
+
+    // Raten erst hier: die Messung tickt in einem eigenen Takt (60 s), die
+    // Topologie in einem anderen. Ohne diesen Aufruf stünden die Raten bis zum
+    // nächsten Flow-Poll leer, wenn die Fleet-Antwort später eintrifft.
+    renderFlowRows();
   };
+
+  if (topoEl) {
+    loadFlows();
+    setInterval(loadFlows, 60000);
+  }
 
   /* ---------- KI-Chat (Ollama) + Stimme ---------- */
   const chatState = { history: [], busy: false, voice: false };
@@ -543,6 +801,7 @@
         line('    +-- /api/chat ───── ollama · qwen3:8b · eigene gpu');
         line('    +-- /api/health ─── http-checks gegen meine projekte');
         line('    +-- /api/deploys ── releases/ + current-symlink');
+        line('    +-- /api/flows ──── echte traffic-raten (tap auf den knoten-bridges)');
         line('');
         line('  alles self-hosted im 3-knoten-cluster. kein datenpunkt verlässt', 't-dim');
         line('  das haus — außer über den verschlüsselten tunnel.', 't-dim');

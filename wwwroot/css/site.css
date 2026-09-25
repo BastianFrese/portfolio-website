@@ -309,15 +309,29 @@ h2::before { content: '## '; color: var(--accent); }
 .topo-flow .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--faint); }
 .topo-flow .dot.up { background: var(--accent); }
 .topo-flow .dot.down { background: var(--bad); }
-.topo-flow-name { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-flow-name { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .topo-flow-arrow { color: var(--accent-dim); flex: none; }
 .topo-flow-via { margin-left: auto; font-size: 9.5px; color: var(--faint); white-space: nowrap; }
+
+/* Raten und Verlauf der Flow-Zeilen. Beide stehen *hinter* `.topo-flow-via`,
+   die `margin-left: auto` hat — dadurch bleiben sie von rechts stabil, und
+   keine bestehende Regel muss angefasst werden.
+   `min-width` hält die Spalte auch dann breit, wenn `—` drinsteht: sonst
+   springt die Sparkline beim Wechsel zwischen Messung und Lücke. */
+.topo-flow-rate {
+  flex: none; min-width: 40px; margin-left: 4px; text-align: right; color: var(--accent-2);
+}
+.topo-flow-rate.none { color: var(--faint); }
+.topo-flow-spark { width: 64px; height: 14px; flex: none; margin-left: 6px; }
+.topo-flow-spark polyline { fill: none; stroke: var(--accent-2); stroke-width: 1.25; }
+.topo-flow-spark circle { fill: var(--accent-2); }
 @media (max-width: 860px) {
   .topo-nodes { grid-template-columns: 1fr; }
   .topo-spine { display: none; }
   .topo-node::before { display: none; }
   .topo-chain { gap: 6px; }
   .topo-link { min-width: 14px; }
+  .topo-flow-spark { width: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .topo-link, .topo-spine::before, .topo-node::before { animation: none; }
