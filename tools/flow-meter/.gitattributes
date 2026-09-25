@@ -16,3 +16,7 @@
 
 # Reine Testdaten für `--pcap`; ein Zeilenende ist hier ohne Bedeutung.
 *.pcap    binary
+
+# Diese Datei selbst: bekäme sie CRLF, hinge an jedem Muster oben ein `\r` —
+# und dann greift keines von ihnen mehr. Die Regel muss sich also mit einschließen.
+.gitattributes text eol=lf
