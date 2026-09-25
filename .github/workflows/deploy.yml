@@ -11,15 +11,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    # Self-Hosted-Runner läuft direkt auf LXC 402 (portfolio-ws) —
-    # kein SSH, kein Port-Forward, keine Deploy-Keys nötig.
-    runs-on: [self-hosted, linux, portfolio]
-    environment: production
-
+  build:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Publish
         run: dotnet publish Portfolio.csproj -c Release -r linux-x64 --self-contained false -o publish
@@ -29,13 +30,32 @@ jobs:
         # und der Extrahier-Schritt schlägt beim nächsten Deploy mit chown-Fehlern fehl.
         run: tar -czf app.tar.gz --owner=0 --group=0 -C publish .
 
+      - name: Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: app.tar.gz
+          retention-days: 3
+
+  deploy:
+    # Self-Hosted-Runner läuft direkt auf LXC 402 (portfolio-ws) —
+    # kein SSH, kein Port-Forward, keine Deploy-Keys nötig.
+    needs: build
+    runs-on: [self-hosted, linux, portfolio]
+    environment: production
+    steps:
+      - name: Artifact laden
+        uses: actions/download-artifact@v4
+        with:
+          name: app
+
       - name: Deploy (lokal auf dem Ziel-Host)
         run: |
           set -e
           APP_DIR=/var/www/portfolio
           TS=$(date +%Y%m%d-%H%M%S)
           sudo mkdir -p $APP_DIR/releases/$TS
-          tar -xzf app.tar.gz -C $APP_DIR/releases/$TS
+          sudo tar -xzf app.tar.gz -C $APP_DIR/releases/$TS
           sudo ln -sfn $APP_DIR/releases/$TS $APP_DIR/current
           sudo systemctl restart portfolio
           sleep 3
