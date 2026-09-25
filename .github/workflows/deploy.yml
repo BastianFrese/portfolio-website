@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H -p ${{ secrets.DEPLOY_SSH_PORT || '22' }} ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Publish
+        run: dotnet publish Portfolio.csproj -c Release -r linux-x64 --self-contained false -o publish
+
+      - name: Package
+        run: tar -czf app.tar.gz -C publish .
+
+      - name: Upload
+        run: |
+          scp -P ${{ secrets.DEPLOY_SSH_PORT || '22' }} \
+            app.tar.gz \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
+
+      - name: Deploy on server
+        run: |
+          ssh -p ${{ secrets.DEPLOY_SSH_PORT || '22' }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "set -e; \
+             APP_DIR=${{ secrets.DEPLOY_APP_DIR }}; \
+             TS=\$(date +%Y%m%d-%H%M%S); \
+             sudo mkdir -p \$APP_DIR/releases/\$TS; \
+             tar -xzf /tmp/app.tar.gz -C \$APP_DIR/releases/\$TS; \
+             sudo ln -sfn \$APP_DIR/releases/\$TS \$APP_DIR/current; \
+             rm /tmp/app.tar.gz; \
+             sudo systemctl restart portfolio; \
+             sleep 3; \
+             curl -fsS --max-time 10 http://127.0.0.1:5000/health/live || true; \
+             cd \$APP_DIR/releases && ls -1t | tail -n +6 | xargs -r sudo rm -rf"
+
+      - name: Smoke test
+        run: |
+          sleep 3
+          curl -fsSL --max-time 15 https://bastian-frese.de/health/live | grep -q "healthy" || (echo 'Smoke test failed' && exit 1)

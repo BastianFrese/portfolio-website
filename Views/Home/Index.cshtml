@@ -1,0 +1,314 @@
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="kicker">portfolio · systemintegration</p>
+        <h1>Bastian Frese<span class="cursor">_</span></h1>
+        <p class="lead">Ich baue und betreibe IT-Systeme, die laufen — produktiv, mit echten Nutzern, jeden Tag.</p>
+        <p class="sub">Eigene Serverlandschaft, Anwendungen mit echten Nutzern, Monitoring mit Alarmierung — und KI, die lokal auf eigener Hardware arbeitet, bewusst ohne Cloud. Alles, was hier steht, wird <strong>betrieben</strong>, nicht nur gebaut.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#projekte">projekte ansehen</a>
+          <a class="btn" href="#kontakt">kontakt</a>
+        </div>
+        <p id="status-chip" class="status-chip loading">service-status wird geprüft …</p>
+      </div>
+      <div class="term">
+        <div class="term-bar"><span></span><span></span><span></span><em>portfolio-ws — boot</em></div>
+        <pre id="boot-term" class="term-pre"></pre>
+      </div>
+    </div>
+    <div class="metrics reveal">
+      <div>
+        <span class="m-label">ladezeit (ttfb)</span>
+        <span class="m-value" id="m-ttfb">—</span>
+      </div>
+      <div>
+        <span class="m-label">transport</span>
+        <span class="m-value">tunnel <span>· 0 offene ports</span></span>
+      </div>
+      <div>
+        <span class="m-label">cookies</span>
+        <span class="m-value">0 <span>· 0 tracking</span></span>
+      </div>
+      <div>
+        <span class="m-label">externe requests</span>
+        <span class="m-value">0 <span>· alles self-hosted</span></span>
+      </div>
+      <div>
+        <span class="m-label">cluster</span>
+        <span class="m-value" id="m-fleet">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="projekte" class="section">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>projekte</h2>
+        <p class="section-sub">Vier Anwendungen, die im echten Betrieb laufen — mit Zahlen, die man prüfen kann.</p>
+      </div>
+      <p id="health-board" class="health-board reveal">projekt-health wird geprüft …</p>
+      <div class="grid">
+        <article class="card reveal">
+          <div class="card-top">
+            <span class="card-index">01</span>
+            <span class="pill ok">produktiv</span>
+          </div>
+          <h3>ERDI's Racing Community</h3>
+          <p class="tagline">liga-plattform · erdi-erc.de · seit 05/2026</p>
+          <ul class="facts">
+            <li>ASP.NET Core MVC, EF Core + MySQL, OAuth-Anmeldung</li>
+            <li><strong>340 automatisierte Tests</strong>, <strong>66 Datenbank-Migrationen</strong></li>
+            <li>CI/CD: GitHub Actions → Release → Deployment → Health-Check</li>
+            <li>Läuft auf eigenem Server hinter Reverse Proxy und verschlüsseltem Tunnel</li>
+          </ul>
+          <p class="point"><strong>Was das zeigt:</strong> Ausdauer im Betrieb. Eine Community nutzt das System täglich — inklusive eigener Server-API für eine Desktop-Telemetrie-Anwendung.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-top">
+            <span class="card-index">02</span>
+            <span class="pill beta">private beta</span>
+          </div>
+          <h3>ERCTelemetry</h3>
+          <p class="tagline">desktop-app für renn-simulationen · wpf</p>
+          <ul class="facts">
+            <li>UDP-Telemetrie-Parsing, SQLite, Stream-Overlays für OBS</li>
+            <li>OAuth mit verschlüsselt gespeicherten Zugangsdaten</li>
+            <li>Installer mit Delta-Auto-Update — Nutzer aktualisieren sich selbst</li>
+            <li>Zwei Testprojekte, rund <strong>48.000 Zeilen C#</strong></li>
+          </ul>
+          <p class="point"><strong>Was das zeigt:</strong> End-to-end denken — von der Datenübertragung über die Oberfläche bis zum Update-Mechanismus auf fremden Rechnern.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-top">
+            <span class="card-index">03</span>
+            <span class="pill ok">produktiv · ehrenamt</span>
+          </div>
+          <h3>Loren Flowers</h3>
+          <p class="tagline">online-shop für einen echten kunden · seit 04/2026</p>
+          <ul class="facts">
+            <li>ASP.NET Core Identity, MySQL, Warenkorb/Checkout, Kundenkonten</li>
+            <li>PDF-Rechnungserzeugung, Admin-Bereich</li>
+            <li>Gebaut und betrieben für einen realen Kunden mit echtem Bestellvolumen</li>
+          </ul>
+          <p class="point"><strong>Was das zeigt:</strong> Verantwortung. Ein Shop, der nicht funktioniert, kostet den Kunden Geld — das ist ein anderer Maßstab als jede Demo.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-top">
+            <span class="card-index">04</span>
+            <span class="pill ok">produktiv</span>
+          </div>
+          <h3>Lyra</h3>
+          <p class="tagline">lokaler sprachassistent · ki auf eigener hardware</p>
+          <ul class="facts">
+            <li>KI-Agent mit rund <strong>25 Werkzeugen</strong> (Tool-Calling)</li>
+            <li>Lokale Spracherkennung, lokale Modelle — das Haus verlässt nichts</li>
+            <li>Zugangsdaten verschlüsselt gespeichert, über <strong>100 Unit-Tests</strong></li>
+          </ul>
+          <p class="point"><strong>Was das zeigt:</strong> KI als Werkzeug, nicht als Zauber. Lokale KI ist der Weg, wie Organisationen mit Datenschutz-Anforderungen KI nutzen können.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="infrastruktur" class="section section-alt">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>infrastruktur</h2>
+        <p class="section-sub">Systeme aufsetzen kann jeder. Betreiben heißt: wissen, was läuft — bevor es ausfällt.</p>
+      </div>
+      <div class="grid">
+        <div class="card reveal">
+          <h3>Der Betrieb</h3>
+          <ul class="facts">
+            <li>3-Knoten-Hypervisor-Cluster, rund <strong>30 virtuelle Systeme</strong></li>
+            <li>Reverse Proxy mit TLS-Terminierung, verschlüsselte Tunnels statt offener Ports</li>
+            <li>Monitoring (Grafana, Prometheus, Loki) mit Verfügbarkeits-Checks und Alarmierung</li>
+            <li>Konfigurationsmanagement (Ansible), Dienste mit systemd und Docker Compose</li>
+            <li>Getrenntes Backup-Ziel auf NAS</li>
+          </ul>
+        </div>
+        <div class="card reveal">
+          <h3>Der Zonenplan <span class="tagline" style="display:inline">(schematisch, vereinfacht)</span></h3>
+          <svg viewBox="0 0 460 330" role="img" aria-label="Zonenplan: Internet, Edge, Anwendungen, Daten, Management, Gast — mit blockierten Pfaden aus der Gast-Zone">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#6fae9a"></path>
+              </marker>
+              <marker id="arrBad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#e5534b"></path>
+              </marker>
+              
+            </defs>
+            <rect x="170" y="10" width="120" height="34" rx="6" class="zBox zNet"/>
+            <text x="230" y="31" class="zText">Internet</text>
+            <rect x="170" y="70" width="120" height="34" rx="6" class="zBox zEdge"/>
+            <text x="230" y="91" class="zText">Edge · Reverse Proxy</text>
+            <rect x="60" y="135" width="160" height="44" rx="6" class="zBox zApp"/>
+            <text x="140" y="153" class="zText">Anwendungen</text>
+            <text x="140" y="169" class="zText zSmall">+ Monitoring</text>
+            <rect x="240" y="135" width="160" height="44" rx="6" class="zBox zData"/>
+            <text x="320" y="153" class="zText">Datenbanken</text>
+            <text x="320" y="169" class="zText zSmall">+ Backup-Ziel</text>
+            <rect x="240" y="215" width="160" height="40" rx="6" class="zBox zMgmt"/>
+            <text x="320" y="239" class="zText">Management</text>
+            <rect x="60" y="215" width="160" height="40" rx="6" class="zBox zGuest"/>
+            <text x="140" y="231" class="zText">Gast / Spiel</text>
+            <text x="140" y="247" class="zText zSmall">größte Exposition</text>
+            <line x1="230" y1="44" x2="230" y2="66" class="flow"/>
+            <line x1="220" y1="104" x2="150" y2="131" class="flow"/>
+            <line x1="240" y1="104" x2="310" y2="131" class="flow"/>
+            <line x1="140" y1="179" x2="270" y2="211" class="flow bad"/>
+            <line x1="200" y1="255" x2="236" y2="239" class="flow bad"/>
+            <text x="140" y="278" class="zSmall bad">blockiert: kein Weg zu Daten &amp; Management</text>
+            <text x="320" y="278" class="zSmall">nur Administration von innen</text>
+          </svg>
+        </div>
+      </div>
+      <div class="story reveal">
+        <h3>Was ich daraus gelernt habe</h3>
+        <p>Das Netz war vollständig flach: Jedes System erreichte jedes andere — das Backup-Ziel genauso wie die Verwaltung. Ich habe diesen Befund gefunden, indem ich die Cluster-Konfiguration systematisch ausgelesen und gegen die Sicherheitsanforderungen geprüft habe, <strong>nicht</strong> durch einen Ausfall. Daraus ist der Zonenplan entstanden: Gast-Systeme mit der größten Exposition haben keinen Weg zu Daten und Management — und was nicht ausdrücklich erlaubt ist, ist verboten.</p>
+        <p>Zwei Sätze, die ich daraus mitnehme: <strong>Blast Radius ist eine Entwurfsentscheidung, keine Eigenschaft.</strong> Und: Ein Schutz, der nicht greift, ist gefährlicher als gar keiner.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="fleet" class="section section-alt">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>fleet — live aus dem rack</h2>
+        <p class="section-sub">Alle VMs und LXCs aus dem 3-Knoten-Cluster, direkt aus der Proxmox-API gelesen. Der Status ist echt — was du siehst, ist der Zustand, in dem sich meine Systeme gerade wirklich befinden.</p>
+      </div>
+      <p id="fleet-meta" class="fleet-meta reveal">fleet wird geladen …</p>
+      <div id="node-stats" class="node-stats reveal"></div>
+      <div id="fleet-grid" class="fleet-grid reveal">
+      </div>
+      <p class="term-hint reveal">quelle: proxmox-ve cluster-api · cache 45 s · gestoppte systeme werden ehrlich als gestoppt angezeigt</p>
+    </div>
+  </section>
+
+  <section id="diese-seite" class="section">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>der weg zu dir</h2>
+        <p class="section-sub">Praxis statt Beschreibung: Diese Seite ist selbst ein Systemintegrationsprojekt — dein Klick bis zu dieser Anwendung, Stufe für Stufe.</p>
+      </div>
+      <div class="pipe reveal">
+        <div class="pipe-track"></div>
+        <div class="pipe-packet"></div>
+        <div class="pipe-step">
+          <span class="pipe-num">01</span>
+          <strong>Browser</strong>
+          <span>Du. Genau jetzt.</span>
+        </div>
+        <div class="pipe-step">
+          <span class="pipe-num">02</span>
+          <strong>Cloudflare Edge</strong>
+          <span>DNS + TLS-Terminierung</span>
+        </div>
+        <div class="pipe-step">
+          <span class="pipe-num">03</span>
+          <strong>Tunnel</strong>
+          <span>verschlüsselt, abgehend — keine offenen Ports</span>
+        </div>
+        <div class="pipe-step">
+          <span class="pipe-num">04</span>
+          <strong>Reverse Proxy</strong>
+          <span>Routing + Security-Header</span>
+        </div>
+        <div class="pipe-step">
+          <span class="pipe-num">05</span>
+          <strong>systemd</strong>
+          <span>diese Anwendung, live</span>
+        </div>
+      </div>
+      <div class="term reveal" style="margin-top:26px">
+        <div class="term-bar"><span></span><span></span><span></span><em>portfolio-shell — interaktiv</em></div>
+        <pre id="term-out" class="term-out"></pre>
+        <div class="term-in">
+          <span class="t-prompt">besucher@bastian-frese.de:~$</span>
+          <input id="term-in-input" type="text" autocomplete="off" spellcheck="false" aria-label="Terminal-Eingabe" placeholder="help">
+        </div>
+      </div>
+      <p class="term-hint">Echte Befehle, echte Antworten: <code>neofetch</code> <code>fleet</code> <code>health</code> <code>deploys</code> <code>architektur</code> <code>chat</code> <code>sudo</code></p>
+      <p class="badges">
+        <span class="badge">CI/CD: push → build → deploy</span>
+        <span class="badge">health-endpoint</span>
+        <span class="badge">security-header</span>
+        <span class="badge">0 offene ports</span>
+        <span class="badge">0 externe requests</span>
+      </p>
+    </div>
+  </section>
+
+  <section id="ki" class="section section-alt">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>ki — lokal statt cloud</h2>
+        <p class="section-sub">KI-Funktionen, die das Haus nicht verlassen, sind datenschutzkonform nutzbar. Ich habe das nicht diskutiert — ich habe es gebaut.</p>
+      </div>
+      <div class="grid">
+        <div class="card reveal">
+          <h3>Sprachassistent „Lyra“</h3>
+          <p>Ein Assistent, der auf dem eigenen Rechner läuft: Spracherkennung und Sprachmodell komplett lokal, mit rund 25 Werkzeugen, die er selbstständig aufrufen kann. Kein Cloud-Abruf, keine Datenabgabe an Dritte.</p>
+        </div>
+        <div class="card reveal">
+          <h3>Betreuungs-Agent</h3>
+          <p>Ein Agent auf eigenem Server, der meine Infrastruktur über SSH überwacht und typische Störungen selbstständig behebt. KI als Kollege, der nachts wach bleibt — mit begrenzten Rechten, damit der Schaden, den er anrichten könnte, null bleibt.</p>
+        </div>
+      </div>
+      <div class="term reveal chat-card">
+        <div class="term-bar">
+          <span></span><span></span><span></span>
+          <button id="chat-voice" class="chat-voice" type="button" title="Antworten vorlesen">🔇 stimme</button>
+          <em>ki-chat — lokal auf eigener gpu</em>
+        </div>
+        <div id="chat-out" class="term-out chat-out"></div>
+        <div class="term-in">
+          <span class="t-prompt">du&gt;</span>
+          <input id="chat-input" type="text" autocomplete="off" spellcheck="false" aria-label="KI-Chat eingabe" placeholder="frag was über die projekte oder das lab …">
+        </div>
+      </div>
+      <p class="term-hint reveal">lokales modell auf eigener hardware · max. 12 fragen / 10 min · keine daten verlassen das haus</p>
+    </div>
+  </section>
+
+  <section id="stack" class="section">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>stack</h2>
+      </div>
+      <div class="chip-groups reveal">
+        <div><span class="chip-label">sprachen</span>
+          <span class="chip">C# / .NET</span><span class="chip">Python</span><span class="chip">SQL</span><span class="chip">PowerShell / Bash</span><span class="chip">JavaScript</span>
+        </div>
+        <div><span class="chip-label">frameworks</span>
+          <span class="chip">ASP.NET Core MVC</span><span class="chip">WPF</span><span class="chip">EF Core</span><span class="chip">FastAPI</span><span class="chip">ASP.NET Core Identity</span>
+        </div>
+        <div><span class="chip-label">daten</span>
+          <span class="chip">MySQL</span><span class="chip">SQLite</span><span class="chip">EF Core Migrationen</span>
+        </div>
+        <div><span class="chip-label">betrieb</span>
+          <span class="chip">Proxmox</span><span class="chip">Nginx</span><span class="chip">Cloudflare Tunnel</span><span class="chip">GitHub Actions</span><span class="chip">Ansible</span><span class="chip">Docker Compose</span><span class="chip">systemd</span><span class="chip">Grafana / Prometheus / Loki</span>
+        </div>
+        <div><span class="chip-label">tests</span>
+          <span class="chip">xUnit</span><span class="chip">CI-Pipelines</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="kontakt" class="section section-alt">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>kontakt</h2>
+        <p class="section-sub">Fragen zum Portfolio, zu einem Projekt oder zu einer Stelle — schreiben Sie mir.</p>
+      </div>
+      <p class="contact-mail reveal"><a href="mailto:bastian@@bastian-frese.de">bastian@@bastian-frese.de</a>
+        <button id="copy-mail" class="contact-copy" type="button">kopieren</button>
+      </p>
+    </div>
+  </section>
+</main>

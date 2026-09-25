@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070b10">
+  <title>@ViewData["Title"]</title>
+  <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-brand" href="/">bastian@frese<span class="t">:~$</span></a>
+      <div class="nav-links">
+        <a href="#projekte">projekte</a>
+        <a href="#infrastruktur">infrastruktur</a>
+        <a href="#fleet">fleet</a>
+        <a href="#diese-seite">der-weg</a>
+        <a href="#ki">ki</a>
+        <a href="#stack">stack</a>
+        <a href="#kontakt" class="cta">kontakt</a>
+      </div>
+    </div>
+  </nav>
+  @RenderBody()
+  <footer>
+    <div class="wrap">
+      <p class="f-mono"><span class="t-prompt">besucher@bastian-frese.de:~$</span> session — <span class="t-ok">0 cookies · 0 tracking · 0 externe requests</span></p>
+      <p>asp.net core mvc · net10 · 0 externe pakete · self-hosted hinter cloudflare tunnel · security-header aktiv</p>
+      <p>bastian-frese.de — gebaut und betrieben von Bastian Frese · <a href="/impressum">impressum &amp; datenschutz</a></p>
+    </div>
+  </footer>
+  <script src="~/js/site.js" asp-append-version="true" defer></script>
+</body>
+</html>
