@@ -5,56 +5,48 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Serielle Deployments: Kein paralleler Zugriff auf den Webserver
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Self-Hosted-Runner läuft direkt auf LXC 402 (portfolio-ws) —
+    # kein SSH, kein Port-Forward, keine Deploy-Keys nötig.
+    runs-on: [self-hosted, linux, portfolio]
     environment: production
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H -p ${{ secrets.DEPLOY_SSH_PORT || '22' }} ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
       - name: Publish
         run: dotnet publish Portfolio.csproj -c Release -r linux-x64 --self-contained false -o publish
 
       - name: Package
-        run: tar -czf app.tar.gz -C publish .
+        # --owner=0 --group=0: sonst gehören die extrahierten Dateien dem Runner-User
+        # und der Extrahier-Schritt schlägt beim nächsten Deploy mit chown-Fehlern fehl.
+        run: tar -czf app.tar.gz --owner=0 --group=0 -C publish .
 
-      - name: Upload
+      - name: Deploy (lokal auf dem Ziel-Host)
         run: |
-          scp -P ${{ secrets.DEPLOY_SSH_PORT || '22' }} \
-            app.tar.gz \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
-
-      - name: Deploy on server
-        run: |
-          ssh -p ${{ secrets.DEPLOY_SSH_PORT || '22' }} \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "set -e; \
-             APP_DIR=${{ secrets.DEPLOY_APP_DIR }}; \
-             TS=\$(date +%Y%m%d-%H%M%S); \
-             sudo mkdir -p \$APP_DIR/releases/\$TS; \
-             tar -xzf /tmp/app.tar.gz -C \$APP_DIR/releases/\$TS; \
-             sudo ln -sfn \$APP_DIR/releases/\$TS \$APP_DIR/current; \
-             rm /tmp/app.tar.gz; \
-             sudo systemctl restart portfolio; \
-             sleep 3; \
-             curl -fsS --max-time 10 http://127.0.0.1:5000/health/live || true; \
-             cd \$APP_DIR/releases && ls -1t | tail -n +6 | xargs -r sudo rm -rf"
-
-      - name: Smoke test
-        run: |
+          set -e
+          APP_DIR=/var/www/portfolio
+          TS=$(date +%Y%m%d-%H%M%S)
+          sudo mkdir -p $APP_DIR/releases/$TS
+          tar -xzf app.tar.gz -C $APP_DIR/releases/$TS
+          sudo ln -sfn $APP_DIR/releases/$TS $APP_DIR/current
+          sudo systemctl restart portfolio
           sleep 3
-          curl -fsSL --max-time 15 https://bastian-frese.de/health/live | grep -q "healthy" || (echo 'Smoke test failed' && exit 1)
+          curl -fsS --max-time 10 http://127.0.0.1:5000/health/live
+
+      - name: Smoke test (öffentlich)
+        run: |
+          curl -fsSL --max-time 15 https://bastian-frese.de/health/live | grep -q "healthy"
+
+      - name: Alte Releases aufräumen (behalte 5)
+        if: success()
+        run: |
+          cd /var/www/portfolio/releases
+          ls -1t | tail -n +6 | sudo xargs -r rm -rf
