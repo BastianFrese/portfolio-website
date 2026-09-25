@@ -103,7 +103,40 @@ def _peers_for_test() -> Peers:
     return peers
 
 
-def selftest() -> int:
+def cli_wiring(parser) -> list[str]:
+    """Die Optionen, die keinen rohen String erwarten, müssen konvertiert ankommen.
+
+    `--exclude` war genau hier kaputt: `parse_exclude` war geschrieben, aber nie
+    verdrahtet, also kam der rohe String `192.168.100.24:5000` in `Window.add()`
+    an und riss beim Entpacken `ex_ip, ex_port = self._exclude` **jedes** Paket ab
+    — der Leser startete endlos neu, tcpdump starb im Takt, und gepusht wurde nie
+    etwas. Unbemerkt blieb es, weil der 15-Minuten-Diagnoselauf `--dump` ohne
+    `--exclude` läuft. Diese Prüfung ist der Grund, warum es das nicht wieder tut.
+    """
+    failures: list[str] = []
+    expected_ip = int(ipaddress.IPv4Address(_T_A))
+
+    args = parser.parse_args(["--exclude", f"{_T_A}:5000"])
+    if not isinstance(args.exclude, tuple) or len(args.exclude) != 2:
+        failures.append(f"--exclude kommt nicht als Paar an: {args.exclude!r}")
+    elif args.exclude != (expected_ip, 5000):
+        failures.append(f"--exclude falsch geparst: {args.exclude!r}")
+
+    # Ohne Angabe muss None herauskommen — `add()` prüft genau darauf.
+    if parser.parse_args([]).exclude is not None:
+        failures.append("--exclude ist ohne Angabe nicht None")
+
+    # `--lan` erwartet Tupel von Netzen, nicht den Text.
+    args = parser.parse_args(["--lan", "192.0.2.0/24"])
+    if not isinstance(args.lan, tuple) or not args.lan:
+        failures.append(f"--lan kommt nicht als Netz-Tupel an: {args.lan!r}")
+    elif str(args.lan[0]) != "192.0.2.0/24":
+        failures.append(f"--lan falsch geparst: {args.lan!r}")
+
+    return failures
+
+
+def selftest(parser=None) -> int:
     failures: list[str] = []
 
     def check(condition: bool, label: str) -> None:
@@ -270,10 +303,13 @@ def selftest() -> int:
     check(payload["window"]["from"] == "2023-11-14T22:13:20Z", "Zeitstempel nicht UTC-ISO")
     check(all(f["bytes"] > 0 for f in payload["flows"]), "leere Ströme in der Nutzlast")
 
+    if parser is not None:
+        failures.extend(cli_wiring(parser))
+
     if failures:
         print("SELFTEST FEHLGESCHLAGEN:")
         for failure in failures:
             print(f"  - {failure}")
         return 1
-    print("selftest ok — Parser, pcap-Bytes, MAC-Brücke, Dedupe, Paarung, Grenzen")
+    print("selftest ok — Parser, pcap-Bytes, MAC-Brücke, Dedupe, Paarung, Grenzen, CLI")
     return 0

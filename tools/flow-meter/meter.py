@@ -224,7 +224,10 @@ def run(args, peers: Peers, messages: queue.Queue, stop: threading.Event) -> int
                     if args.once and sent > 0:
                         return EXIT_OK
         except (ValueError, OSError) as exc:
-            warn(f"Leser neu starten ({type(exc).__name__})")
+            # Die Meldung gehört dazu: nur den Typ zu nennen hat bei der
+            # Fehlersuche nichts geholfen — ein `ValueError` aus dem Parser und
+            # einer aus `datetime` sehen sonst identisch aus.
+            warn(f"Leser neu starten ({type(exc).__name__}: {exc})")
         finally:
             _stop_process(process)
 
@@ -308,11 +311,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--secret-file", default=env("FLOW_METER_SECRET_FILE"),
                         help="Datei mit dem Shared Secret")
     parser.add_argument(
-        "--exclude", default=env("FLOW_METER_EXCLUDE"),
+        "--exclude", type=parse_exclude, default=env("FLOW_METER_EXCLUDE"),
         help="eigener Push als IP:PORT — sonst misst der Meter sich selbst",
     )
     parser.add_argument(
-        "--lan", default=env("FLOW_METER_LAN"),
+        "--lan", type=parse_lan, default=env("FLOW_METER_LAN"),
         help="LAN-Netze als CIDR (Komma), sonst aus den Knotenadressen abgeleitet",
     )
     parser.add_argument("--once", action="store_true", help="ein Fenster, dann Ende")
@@ -358,10 +361,13 @@ def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.selftest:
-        return selftest()
+        # Der Parser geht mit: `--exclude` war als einzige Option nicht
+        # verdrahtet, und ohne diese Prüfung blieb das unbemerkt, weil der
+        # Diagnoselauf (`--dump`) die Option nie setzt.
+        return selftest(build_parser())
 
     peers = load_peers(
-        lan=parse_lan(args.lan),
+        lan=args.lan,
         statuses={} if args.pcap else load_statuses(),
     )
     if not peers.guest_ips and not peers.mac_name:
