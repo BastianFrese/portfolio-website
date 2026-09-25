@@ -1,0 +1,131 @@
+"""Das Messmodell: Fenster sammeln, Paare kanonisieren, Nutzlast bauen.
+
+Hier liegt die Rechenregel, die die Anzeige trägt: **kanonische Paarung** nach
+Adresse (kleinere zuerst) und **Dienstport = kleinerer der beiden Ports**. Beides
+ist reine Arithmetik, damit zwei Knoten ohne Absprache dasselbe Ergebnis
+bekommen — sonst würden sie dieselbe Konversation unterschiedlich benennen.
+"""
+
+from __future__ import annotations
+
+import threading
+from datetime import datetime, timezone
+from typing import Optional
+
+from peers import Peers, should_count
+from wire import Packet
+
+#: Obergrenze für Paare je Fenster. Was darüber liegt, wird gezählt, nicht gesendet.
+MAX_FLOWS = 400
+
+
+class Window:
+    """Sammelt ein Fenster und gibt es als Ganzes wieder her.
+
+    Der Leser füllt, der Zeitgeber leert — deshalb die Sperre. Sie ist
+    unbestritten billig und wird nur um `add`/`take` gehalten.
+    """
+
+    def __init__(self, peers: Peers, node: str, exclude: Optional[tuple] = None):
+        self._peers = peers
+        self._node = node
+        self._exclude = exclude
+        self._lock = threading.Lock()
+        self._counts: dict[tuple[str, str, str, int], list[int]] = {}
+        self._truncated = 0
+
+    def add(self, packet: Packet, nbytes: int) -> None:
+        peers, node = self._peers, self._node
+        peers.learn(packet.src_ip, packet.src_mac)
+        peers.learn(packet.dst_ip, packet.dst_mac)
+
+        if self._exclude:
+            ex_ip, ex_port = self._exclude
+            if (packet.dst_ip == ex_ip and packet.dport == ex_port) or (
+                packet.src_ip == ex_ip and packet.sport == ex_port
+            ):
+                return
+
+        if not should_count(peers, packet.src_ip, packet.dst_ip, node):
+            return
+
+        # Kanonische Paarung: kleinere IP zuerst. Richtungsunabhängig, damit
+        # eine Konversation einen Eintrag ergibt statt zwei — und identisch auf
+        # allen Knoten, weil es reine Arithmetik ist.
+        if packet.src_ip <= packet.dst_ip:
+            first, second = packet.src_ip, packet.dst_ip
+        else:
+            first, second = packet.dst_ip, packet.src_ip
+
+        # Der Dienstport ist der kleinere der beiden. In allen Fällen, die die
+        # gepflegte Liste beschreibt, ist das der Dienst (22, 53, 445, 3306,
+        # 8006, 9100, 11434) und nicht der Client. Grenzfall: zwei hohe Ports
+        # (Client 3000 → Dienst 5432) — dann steht der Clientport da, und das
+        # Label heißt ehrlich `sonstiges`.
+        if packet.sport and packet.dport:
+            port = min(packet.sport, packet.dport)
+        else:
+            port = packet.sport or packet.dport
+
+        key = (peers.name_of(first), peers.name_of(second), packet.proto, port)
+        with self._lock:
+            if key in self._counts:
+                slot = self._counts[key]
+                slot[0] += nbytes
+                slot[1] += 1
+            elif len(self._counts) < MAX_FLOWS:
+                self._counts[key] = [nbytes, 1]
+            else:
+                self._truncated += 1
+
+    def take(self) -> tuple[dict, int]:
+        with self._lock:
+            counts, truncated = self._counts, self._truncated
+            self._counts, self._truncated = {}, 0
+            return counts, truncated
+
+    def is_empty(self) -> bool:
+        with self._lock:
+            return not self._counts
+
+
+def build_payload(
+    node: str,
+    window_from: float,
+    window_to: float,
+    counts: dict,
+    dropped: int,
+    truncated: int,
+) -> dict:
+    flows = [
+        {
+            "from": key[0],
+            "to": key[1],
+            "port": key[3],
+            "proto": key[2],
+            "bytes": slot[0],
+            "packets": slot[1],
+        }
+        for key, slot in counts.items()
+    ]
+    flows.sort(key=lambda f: -f["bytes"])
+    return {
+        "node": node,
+        "window": {"from": iso(window_from), "to": iso(window_to)},
+        "flows": flows,
+        # `dropped` = was der Kernel verloren hat, `truncated` = was über der
+        # Obergrenze lag. Beides ist Verlust — aber ungleich teuer, darum
+        # getrennt. Die App warnt bei beidem.
+        "dropped": dropped,
+        "truncated": truncated,
+    }
+
+
+def iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def next_boundary(now: float, window: int) -> float:
+    """Nächste Fenstergrenze auf der Wanduhr — ohne Absprache identisch auf allen
+    Knoten, weil die Unix-Epoche die gemeinsame Referenz ist."""
+    return (int(now // window) + 1) * window

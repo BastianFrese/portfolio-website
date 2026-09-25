@@ -4,3 +4,6 @@ publish/
 app.tar.gz
 *.user
 screens/
+# flow-meter ist Python und läuft lokal wie auf den Knoten
+__pycache__/
+*.pyc
