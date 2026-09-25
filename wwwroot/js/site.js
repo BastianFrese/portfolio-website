@@ -380,7 +380,7 @@
         .catch(() => line('status-endpoint nicht erreichbar', 't-warn')),
       projekte: () => {
         line('erdi-erc.de .............. liga-plattform, produktiv', 't-ok');
-        line('loren-flowers.shop ....... shop, produktiv', 't-ok');
+        line('loren-flowers.shop ....... shop, abgeschlossen (Referenz online)', 't-ok');
         line('erctelemetry ............. desktop-app, beta', 't-warn');
         line('lyra ..................... lokaler ki-assistent', 't-ok');
       },
