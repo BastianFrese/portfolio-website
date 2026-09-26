@@ -16,7 +16,8 @@ Nur stdlib (scapy fehlt auf den Knoten). Beispiele:
     meter.py --selftest
     meter.py --peers
     meter.py --once --dump --pcap /tmp/mitschnitt.pcap
-    meter.py --url http://…:5000/api/flows/ingest --secret-file /etc/flow-meter/secret
+    meter.py --url https://…:5443/api/flows/ingest --secret-file /etc/flow-meter/secret \
+             --cafile /etc/flow-meter/ingest.crt
 
 Die Konfiguration kommt aus Flags (im Dienst: aus der systemd-Unit) — im Code
 steht bewusst **keine** Adresse.
@@ -24,6 +25,7 @@ steht bewusst **keine** Adresse.
 Aufbau (jedes Modul kennt nur die unter ihm):
 
     console   Ausgabe
+    tls       TLS-Kontext für den Push, angepinntes Zertifikat
     wire      Ethernet/IPv4/pcap  →  Packet
     peers     Gast- und Knotennamen, Dedupe-Regel
     flows     Fenster, kanonische Paarung, Nutzlast
@@ -50,9 +52,10 @@ import urllib.request
 from typing import Optional
 
 from console import info, warn
-from flows import Window, build_payload, iso, next_boundary
+from flows import Window, build_payload, ingest_endpoint, iso, next_boundary
 from peers import Peers, load_peers, load_statuses
 from selftest import selftest
+from tls import build_tls_context
 from wire import SNAPLEN, PcapReader, addr_to_int, parse_frame
 
 #: Wie oft der Leser neu startet, wenn tcpdump stirbt (Sekunden, verdoppelt sich).
@@ -65,13 +68,13 @@ EXIT_CONFIG = 2
 # ------------------------------------------------------------------ Übertragung
 
 
-def build_opener(url: str, secret: str):
+def build_opener(url: str, secret: str, context=None):
     def post(payload: dict) -> None:
         data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         request = urllib.request.Request(url, data=data, method="POST")
         request.add_header("Content-Type", "application/json")
         request.add_header("X-Flow-Secret", secret)
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(request, timeout=15, context=context) as response:
             if response.status not in (200, 202, 204):
                 raise urllib.error.HTTPError(
                     url, response.status, "unerwarteter Status", response.headers, None
@@ -154,8 +157,8 @@ def kernel_drops(lines: list) -> int:
     return total
 
 
-def run(args, peers: Peers, messages: queue.Queue, stop: threading.Event) -> int:
-    window = Window(peers, args.node, args.exclude)
+def run(args, peers: Peers, messages: queue.Queue, stop: threading.Event, excludes=()) -> int:
+    window = Window(peers, args.node, excludes)
     boundary = next_boundary(time.time(), args.window)
     aligned = False
     sent = 0
@@ -357,8 +360,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--secret-file", default=env("FLOW_METER_SECRET_FILE"),
                         help="Datei mit dem Shared Secret")
     parser.add_argument(
+        "--cafile", default=env("FLOW_METER_CAFILE"),
+        help="Zertifikat der Gegenseite (Pinning) — Pflicht bei https://",
+    )
+    parser.add_argument(
         "--exclude", type=parse_exclude, default=env("FLOW_METER_EXCLUDE"),
-        help="eigener Push als IP:PORT — sonst misst der Meter sich selbst",
+        help="weiterer auszuschließender Datenstrom als IP:PORT — das Ziel aus "
+             "--url wird immer ausgeschlossen, hier steht nur, was darüber hinausgeht",
     )
     parser.add_argument(
         "--lan", type=parse_lan, default=env("FLOW_METER_LAN"),
@@ -412,6 +420,21 @@ def main(argv: Optional[list] = None) -> int:
         # Diagnoselauf (`--dump`) die Option nie setzt.
         return selftest(build_parser())
 
+    # Welche Pakete erzeugt der Messaufbau selbst? Das Ziel steht in der URL —
+    # es ein zweites Mal zu verlangen war die Quelle eines stillen Fehlers: mit
+    # einem Wert, der nie zutrifft, misst der Meter seinen eigenen Push mit, und
+    # die Anzeige führt ihn als Gastverkehr. Deshalb wird es hier abgeleitet.
+    excludes = set()
+    if args.exclude:
+        excludes.add(args.exclude)
+    if args.url:
+        endpoint = ingest_endpoint(args.url)
+        if endpoint:
+            excludes.add(endpoint)
+        else:
+            warn("aus der Ziel-URL lässt sich keine Adresse lesen — der eigene "
+                 "Push wird nicht ausgeschlossen (--exclude setzen)")
+
     peers = load_peers(
         lan=args.lan,
         statuses={} if args.pcap else load_statuses(),
@@ -428,13 +451,17 @@ def main(argv: Optional[list] = None) -> int:
         return EXIT_OK
 
     if args.pcap:
-        return replay(args, peers)
+        return replay(args, peers, excludes)
 
     if args.url:
         if not args.secret_file:
             warn("--secret-file fehlt (oder FLOW_METER_SECRET_FILE setzen)")
             return EXIT_CONFIG
-        post = build_opener(args.url, _read_secret(args.secret_file))
+        context, problem = build_tls_context(args.url, args.cafile)
+        if problem:
+            warn(problem)
+            return EXIT_CONFIG
+        post = build_opener(args.url, _read_secret(args.secret_file), context)
     elif args.dump:
         # Reiner Diagnoselauf: messen und zeigen, nichts senden.
         post = lambda payload: None  # noqa: E731
@@ -454,15 +481,15 @@ def main(argv: Optional[list] = None) -> int:
             signal.signal(getattr(signal, signal_name), on_signal)
 
     threading.Thread(target=push_loop, args=(messages, stop, post), daemon=True).start()
-    return run(args, peers, messages, stop)
+    return run(args, peers, messages, stop, excludes)
 
 
-def replay(args, peers: Peers) -> int:
+def replay(args, peers: Peers, excludes=()) -> int:
     """Eine pcap-Datei durch dieselbe Maschine schicken — für die Prüfung echter
     Rohdaten, bevor irgendetwas live läuft."""
     with open(args.pcap, "rb") as fh:
         reader = PcapReader(fh)
-        window = Window(peers, args.node, args.exclude)
+        window = Window(peers, args.node, excludes)
         first = last = None
         total = 0
         for ts, orig_len, frame in reader:

@@ -11,12 +11,43 @@ from __future__ import annotations
 import threading
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlsplit
 
 from peers import Peers, should_count
-from wire import Packet
+from wire import Packet, addr_to_int
 
 #: Obergrenze für Paare je Fenster. Was darüber liegt, wird gezählt, nicht gesendet.
 MAX_FLOWS = 400
+
+#: Ports für URLs ohne Portangabe.
+_SCHEME_PORTS = {"http": 80, "https": 443}
+
+
+def ingest_endpoint(url: str) -> Optional[tuple[int, int]]:
+    """Der eigene Push als `(IP, Port)` — abgeleitet aus der Ziel-URL.
+
+    Warum abgeleitet und nicht konfiguriert: das Ziel steht **schon** in der URL.
+    Ein zweiter Wert dafür kann davon abweichen, und die Abweichung ist still —
+    dann zählt der Meter seinen eigenen Push als Gastverkehr mit, und die Anzeige
+    führt das Messwerkzeug als Datenquelle. Genau das ist passiert: konfiguriert
+    war `<eigene-knoten-ip>:<port>`, aber die Prüfung in `add()` verlangt IP und
+    Port auf **derselben** Paketseite. Die Quell-IP des Knotens trifft den
+    Ziel-Port der App nie — es wurde also nie etwas ausgeschlossen.
+
+    Kein DNS: ist der Host kein Adresstext, kommt `None` zurück, und der Meter
+    sagt beim Start, dass der eigene Push nicht ausgeschlossen werden kann.
+    """
+    parts = urlsplit(url)
+    if not parts.hostname:
+        return None
+    ip = addr_to_int(parts.hostname)
+    if ip is None:
+        return None
+    try:
+        port = parts.port or _SCHEME_PORTS.get(parts.scheme.lower(), 0)
+    except ValueError:
+        return None
+    return (ip, port) if port else None
 
 
 class Window:
@@ -26,10 +57,13 @@ class Window:
     unbestritten billig und wird nur um `add`/`take` gehalten.
     """
 
-    def __init__(self, peers: Peers, node: str, exclude: Optional[tuple] = None):
+    def __init__(self, peers: Peers, node: str, excludes=()):
         self._peers = peers
         self._node = node
-        self._exclude = exclude
+        #: `(IP, Port)`-Paare, die der Messaufbau selbst erzeugt — siehe
+        #: `ingest_endpoint`. Eine Menge, weil das Ingest-Ziel dazukommt und
+        #: `--exclude` weitere nennen darf.
+        self._excludes = frozenset(excludes or ())
         self._lock = threading.Lock()
         self._counts: dict[tuple[str, str, str, int], list[int]] = {}
         self._truncated = 0
@@ -39,8 +73,10 @@ class Window:
         peers.learn(packet.src_ip, packet.src_mac)
         peers.learn(packet.dst_ip, packet.dst_mac)
 
-        if self._exclude:
-            ex_ip, ex_port = self._exclude
+        # IP **und** Port müssen auf derselben Seite des Pakets stehen — deshalb
+        # wird hier gegen das Ziel (App-Host:Ingest-Port) geprüft, in beiden
+        # Richtungen. Eine Knoten-IP mit einem fremden Port kann das nie treffen.
+        for ex_ip, ex_port in self._excludes:
             if (packet.dst_ip == ex_ip and packet.dport == ex_port) or (
                 packet.src_ip == ex_ip and packet.sport == ex_port
             ):

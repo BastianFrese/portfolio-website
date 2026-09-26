@@ -3,7 +3,8 @@
 Das ist der einzige echte Unit-Test dieses Werkzeugs. Er deckt die fummeligste
 Logik ab: Frame-Parsing inklusive VLAN und Fragmenten, die pcap-Byte-Zählung aus
 `orig_len`, die MAC-Brücke für DHCP-Gäste, die Dedupe-Regel, die kanonische
-Paarung, die Obergrenze — und dass keine Adresse in der Nutzlast landet.
+Paarung, die Obergrenze, die TLS-Regel — und dass keine Adresse in der Nutzlast
+landet.
 
 Läuft überall, auch auf einem Windows-Arbeitsplatz: `python meter.py --selftest`.
 
@@ -20,8 +21,9 @@ import json
 import re
 import struct
 
-from flows import MAX_FLOWS, Window, build_payload
+from flows import MAX_FLOWS, Window, build_payload, ingest_endpoint
 from peers import Peers, should_count
+from tls import build_tls_context, tls_error
 from wire import (
     ETHERTYPE_IPV4,
     IPPROTO_ICMP,
@@ -132,6 +134,38 @@ def cli_wiring(parser) -> list[str]:
         failures.append(f"--lan kommt nicht als Netz-Tupel an: {args.lan!r}")
     elif str(args.lan[0]) != "192.0.2.0/24":
         failures.append(f"--lan falsch geparst: {args.lan!r}")
+
+    # `--cafile` erwartet den Pfad als Zeichenkette, nichts konvertiert.
+    args = parser.parse_args(["--cafile", "/etc/flow-meter/ingest.crt"])
+    if args.cafile != "/etc/flow-meter/ingest.crt":
+        failures.append(f"--cafile kommt nicht als Pfad an: {args.cafile!r}")
+
+    # Die TLS-Regel. https:// ohne Cafile ist der eine verbotene Fall: er würde
+    # den Meter entweder gegen den Systemspeicher prüfen lassen — also gegen
+    # einen anderen Vertrauenskreis als den angepinnten — oder mit einer Meldung
+    # scheitern, die nach Netzfehler aussieht statt nach Konfigurationsfehler.
+    for url, cafile, verboten in (
+        ("https://host/api", None, True),
+        ("https://host/api", "/etc/flow-meter/ingest.crt", False),
+        ("HTTPS://host/api", None, True),
+        ("http://host:5000/api", None, False),
+        ("http://host:5000/api", "/etc/flow-meter/ingest.crt", False),
+    ):
+        got = tls_error(url, cafile) is not None
+        if got != verboten:
+            failures.append(f"tls_error({url!r}, {cafile!r}) verbietet={got}, erwartet {verboten}")
+
+    # Klartext bekommt keinen Kontext — sonst reichte ein Cafile unbemerkt in
+    # eine unverschlüsselte Verbindung hinein.
+    context, problem = build_tls_context("http://host:5000/api", None)
+    if context is not None or problem is not None:
+        failures.append(f"http:// bekam einen TLS-Kontext: {context!r} {problem!r}")
+
+    # Der Fall, den ein unvollständiger Rollout erzeugt: Zertifikat noch nicht
+    # auf dem Knoten. Muss beim Start scheitern, nicht beim ersten Push.
+    context, problem = build_tls_context("https://host/api", "/nicht/vorhanden/ingest.crt")
+    if context is not None or not problem:
+        failures.append(f"fehlendes Cafile nicht gemeldet: {problem!r}")
 
     return failures
 
@@ -284,6 +318,53 @@ def selftest(parser=None) -> int:
         check(slot[0] == 150 and slot[1] == 2, f"Bytes nicht summiert: {slot}")
         check(key[3] == 22, f"Dienstport nicht gewählt: {key[3]}")
         check(key[0] == "gast-a" and key[1] == "gast-b", f"kanonische Ordnung falsch: {key[:2]}")
+
+    # --- Eigener Push zählt nicht mit -----------------------------------
+    #
+    # Der Ausschluss war wirkungslos, seit es ihn gibt: geprüft wird IP **und**
+    # Port auf derselben Paketseite, konfiguriert war aber die Knoten-IP mit dem
+    # Ziel-Port. Das trifft nie zu. Folge: jeder Knoten hat seinen eigenen Push
+    # als Gastverkehr gemeldet. Diese Prüfung hält beide Richtungen fest, weil
+    # ein Test gegen nur eine davon die Hälfte des Fehlers stehen ließe.
+    ziel = ingest_endpoint(f"https://{_T_A}:5443/api/flows/ingest")
+    check(ziel == (ip_a, 5443), f"Ziel nicht aus der URL gelesen: {ziel!r}")
+    check(ingest_endpoint(f"http://{_T_A}/api/flows/ingest") == (ip_a, 80),
+          "http:// ohne Portangabe ergibt nicht 80")
+    check(ingest_endpoint(f"https://{_T_A}/api/flows/ingest") == (ip_a, 443),
+          "https:// ohne Portangabe ergibt nicht 443")
+    check(ingest_endpoint("https://meter.example/api/flows/ingest") is None,
+          "ein Name wird als Adresse gelesen (kein DNS erlaubt)")
+
+    rahmen = [
+        # Der Push selbst — Ziel ist die App, deshalb die MAC der App.
+        _eth(_MAC_DHCP, _MAC_A, ETHERTYPE_IPV4,
+             _ipv4(_T_DHCP, _T_A, IPPROTO_TCP, _ports(40123, 5443))),
+        # Die Antwort darauf — dieselbe IP:Port-Kombination, andere Seite.
+        _eth(_MAC_A, _MAC_DHCP, ETHERTYPE_IPV4,
+             _ipv4(_T_A, _T_DHCP, IPPROTO_TCP, _ports(5443, 40123))),
+        # Echter Gastverkehr, der bleiben muss.
+        _eth(_MAC_A, _MAC_B, ETHERTYPE_IPV4,
+             _ipv4(_T_A, _T_B, IPPROTO_TCP, _ports(41000, 22))),
+    ]
+    for label, ausschluss, erwartet in (
+        # Gegenprobe zuerst: **ohne** Ausschluss kommen beide Paare durch. Sonst
+        # wäre die Prüfung darunter grün, weil das Paar ohnehin nicht zählt —
+        # und sie würde nichts über den Ausschluss aussagen.
+        ("Gegenprobe ohne Ausschluss", (), 2),
+        # `if ziel` und nicht `{ziel}`: liefert die Ableitung `None`, wäre die
+        # Menge `{None}` und der Ausschluss stürzte erst im Leserpfad ab — statt
+        # hier als „2 Einträge statt 1" fehlzuschlagen. Ein Ausschluss, der sich
+        # nicht bilden lässt, muss auffallen und nicht abstürzen.
+        ("eigener Push", {ziel} if ziel else frozenset(), 1),
+    ):
+        window = Window(peers, "knoten-1", ausschluss)
+        for frame in rahmen:
+            window.add(parse_frame(frame), 500)
+        counts, _ = window.take()
+        check(len(counts) == erwartet,
+              f"{label}: {len(counts)} Einträge statt {erwartet}")
+        if label == "eigener Push" and counts:
+            check(all(key[3] != 5443 for key in counts), "Push-Port überlebt den Ausschluss")
 
     # --- Obergrenze -----------------------------------------------------
     window = Window(peers, "knoten-1")
