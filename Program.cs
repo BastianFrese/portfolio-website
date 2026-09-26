@@ -1,9 +1,39 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Portfolio.Services;
 using System.Text.Json;
+
+// Selbsttest vor dem Builder: er prüft nur reine Funktionen (Antwortprüfung, die drei
+// Deckel, Adress-Abdruck) und darf weder Konfiguration noch Netz brauchen — sonst wäre
+// er auf einem Arbeitsplatz ohne Ollama nicht lauffähig. Die Unit-Datei übergibt keine
+// Argumente, der Dienst startet also unverändert.
+if (args.Contains("--selftest-chat"))
+{
+    // Mit --dump-prompt zusätzlich zeigen, was das Modell tatsächlich bekommt.
+    return ChatSelfTest.Run(args.Contains("--dump-prompt"));
+}
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddMemoryCache();
+
+// Die Besucheradresse kommt aus X-Forwarded-For — nginx setzt dort genau einen Wert,
+// den es von Cloudflare bekommen hat. Gemessen am 26.09.2026: CF-Connecting-IP kommt
+// an und trägt die echte Besucheradresse; eine vom Besucher mitgeschickte
+// X-Forwarded-For-Kette wird von Cloudflare zwar weitergereicht, aber nginx hängt sie
+// nicht mehr an (siehe nginx-map auf LXC 402).
+//
+// Vertraut wird ausschließlich Loopback — das ist der Vorgabewert von
+// ForwardedHeadersOptions und genau der Fall hier: nginx steht im selben Container und
+// spricht über 127.0.0.1 mit Kestrel. Zusammen mit dem Vorgabe-ForwardLimit von 1
+// heißt das: Header, die von außen mitkommen, sind wirkungslos.
+//
+// Nur XForwardedFor, nicht XForwardedProto: nginx verdrahtet X-Forwarded-Proto hart auf
+// https. Eine Übernahme würde nichts verbessern, sondern nur eine Stellschraube mehr
+// öffnen.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+});
 
 builder.Services.AddHttpClient("pve").ConfigurePrimaryHttpMessageHandler(() =>
     new HttpClientHandler
@@ -38,6 +68,11 @@ if (!string.IsNullOrWhiteSpace(app.Configuration["Flows:IngestSecret"]) &&
 {
     app.Logger.LogError("Flows:Nodes fehlt — der Flow-Ingest lehnt jeden Push ab (403)");
 }
+
+// Muss laufen, bevor irgendetwas die Verbindungsadresse liest — der Chat-Zähler hängt
+// daran. Steht bewusst ganz vorn, damit kein später hinzugefügtes Middleware-Stück
+// versehentlich die Tunnel-Adresse sieht.
+app.UseForwardedHeaders();
 
 app.UseStaticFiles();
 
@@ -195,11 +230,24 @@ app.MapGet("/api/deploys", (IConfiguration cfg) =>
 
 app.MapPost("/api/chat", async (HttpContext ctx, ChatService chat, CancellationToken ct) =>
 {
-    var clientIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    if (chat.IsRateLimited(clientIp))
+    // Ein Abdruck der Besucheradresse, nie die Adresse selbst: HMAC mit einem
+    // Zufallswert, der nur im Arbeitsspeicher lebt. Der Zustand des Zählers enthält
+    // damit nichts, was eine Person identifiziert, und überlebt keinen Neustart.
+    var key = chat.Limits.Fingerprint(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
+    // Geprüft wird früh (billig), angerechnet erst unmittelbar vor dem Modellaufruf.
+    // Sonst kostete jede kaputte Anfrage und jede leere Nachricht Kontingent — und wer
+    // nur 400er schickt, könnte fremde Kontingente aufbrauchen.
+    switch (chat.Limits.Check(key))
     {
-        return Results.Json(new { error = "zu viele Anfragen — bitte in ein paar Minuten nochmal." },
-            statusCode: 429);
+        case ChatVerdict.VisitorLimit:
+            return Results.Json(new { error = "zu viele Anfragen — bitte in ein paar Minuten nochmal." },
+                statusCode: 429);
+        case ChatVerdict.DailyLimit:
+            // Eigener Wortlaut: hier hilft Warten nicht, „gleich nochmal" wäre ein
+            // falscher Rat.
+            return Results.Json(new { error = "das Kontingent für heute ist aufgebraucht — bitte morgen nochmal." },
+                statusCode: 429);
     }
 
     ChatRequest request;
@@ -218,8 +266,17 @@ app.MapPost("/api/chat", async (HttpContext ctx, ChatService chat, CancellationT
         return Results.Json(new { error = "Nachricht fehlt." }, statusCode: 400);
     }
 
+    // Das Modell bedient seriell. Statt zu warten und in den 120-Sekunden-Timeout zu
+    // laufen, wird ehrlich abgesagt — so weiß der Besucher, dass es nicht an ihm liegt.
+    if (!await chat.Limits.Slots.WaitAsync(TimeSpan.Zero, ct))
+    {
+        return Results.Json(new { error = "gerade viele Anfragen — bitte kurz warten." },
+            statusCode: 503);
+    }
+
     try
     {
+        chat.Limits.Consume(key);
         var reply = await chat.AskAsync(request, ct);
         return Results.Json(new { reply });
     }
@@ -232,9 +289,19 @@ app.MapPost("/api/chat", async (HttpContext ctx, ChatService chat, CancellationT
     {
         return Results.Json(new { error = "antwort hat zu lange gedauert." }, statusCode: 504);
     }
+    finally
+    {
+        // Ohne diese Freigabe machte ein einziger Fehler das Kontingent dauerhaft enger
+        // — ein selbstgebauter Ausfall.
+        chat.Limits.Slots.Release();
+    }
 });
 
 app.Run();
+
+// Erreichbar erst, wenn der Dienst endet — nötig, weil der Selbsttest oben einen
+// Rückgabewert liefert und damit alle Pfade einen liefern müssen.
+return 0;
 
 // Vergleich zweier Geheimnisse in konstanter Zeit: beide Seiten zuerst auf eine
 // feste Länge hashen, dann FixedTimeEquals. Ohne das verrät die Laufzeit die

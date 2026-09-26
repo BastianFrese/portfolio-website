@@ -611,18 +611,23 @@
   const askKi = (text, history) => fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: text, history: history.slice(-8) })
+    body: JSON.stringify({ message: text, history: history.slice(-4) })
   }).then(async (r) => {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'ki nicht erreichbar');
     return data.reply || '';
   });
   if (chatOut && chatInput) {
-    const HELLO = 'hallo! ich laufe lokal auf einer eigenen gpu — keine cloud, keine datenabgabe. frag mich was über die projekte, das lab oder den weg in die systemintegration.';
+    const HELLO = 'hallo! ich laufe lokal auf einer eigenen gpu — keine cloud, keine datenabgabe. ich beantworte fragen zu bastian, seinen projekten und seinen kenntnissen — frag einfach.';
     appendChat('ai', 'ki', HELLO);
     chatInput.addEventListener('keydown', (ev) => {
       ev.stopPropagation();
       if (ev.key !== 'Enter' || !chatInput.value.trim()) return;
+      // Ein zweites Enter während einer laufenden Anfrage darf keine zweite starten.
+      // Das Flag gab es schon, es wurde nur nie gelesen — jedes Enter feuerte eine
+      // weitere Anfrage und verbrauchte Kontingent, ohne dass etwas passierte.
+      if (chatState.busy) return;
+      chatState.busy = true;
       const text = chatInput.value.trim();
       chatInput.value = '';
       appendChat('du', 'du', text);
@@ -633,10 +638,11 @@
           speak(reply);
           chatState.history.push({ role: 'user', content: text });
           chatState.history.push({ role: 'assistant', content: reply });
-          chatState.history = chatState.history.slice(-8);
+          chatState.history = chatState.history.slice(-4);
         })
         .catch((err) => appendChat('err', 'fehler', err.message || 'ki nicht erreichbar'))
         .finally(() => {
+          chatState.busy = false;
           if (typing) typing.remove();
           chatInput.focus();
         });
