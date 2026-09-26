@@ -54,11 +54,6 @@ internal static class PortfolioFacts
            PDF-Rechnungserzeugung, Admin-Bereich. Gebaut und betrieben für einen
            realen Kunden mit echtem Bestellvolumen; der Betrieb ist seit 09/2026
            beendet, der Shop bleibt als Referenz erreichbar.
-        4. Lyra — lokaler Sprachassistent und KI-Agent auf eigener Hardware, mit
-           rund 25 Werkzeugen (Tool-Calling), lokaler Spracherkennung und lokalen
-           Modellen; Zugangsdaten verschlüsselt gespeichert, über 100 Unit-Tests.
-           Dazu ein Betreuungs-Agent, der die Infrastruktur per SSH überwacht und
-           typische Störungen selbst behebt — mit bewusst begrenzten Rechten.
 
         INFRASTRUKTUR
         Ein 3-Knoten-Hypervisor-Cluster mit rund 30 virtuellen Systemen: Reverse
@@ -71,5 +66,10 @@ internal static class PortfolioFacts
         Zonenplan gebaut: Gast-Systeme haben keinen Weg zu Daten und Management.
         Sein Satz dazu: Blast Radius ist eine Entwurfsentscheidung, keine
         Eigenschaft.
+
+        Dazu ein Betreuungs-Agent auf eigenem Server, der die Infrastruktur per
+        SSH überwacht und typische Störungen selbst behebt — mit bewusst
+        begrenzten Rechten, damit der Schaden, den er anrichten könnte, null
+        bleibt.
         """;
 }

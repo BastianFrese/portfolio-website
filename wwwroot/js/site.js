@@ -789,10 +789,9 @@
         line('erdi-erc.de .............. liga-plattform, produktiv', 't-ok');
         line('loren-flowers.shop ....... shop, abgeschlossen (Referenz online)', 't-ok');
         line('erctelemetry ............. desktop-app, beta', 't-warn');
-        line('lyra ..................... lokaler ki-assistent', 't-ok');
       },
       infrastruktur: () => line('3 knoten · rund 30 systeme · monitoring · backups · zonen. alles oben auf der seite.'),
-      ki: () => line('lokal statt cloud. sprachassistent + betreuungs-agent + ki-chat hier im terminal (befehl: chat).'),
+      ki: () => line('lokal statt cloud. betreuungs-agent + ki-chat hier im terminal (befehl: chat).'),
       stack: () => line('c#/.net · python · sql · proxmox · nginx · cloudflare tunnel · ansible · grafana/prometheus'),
       architektur: () => {
         line('der weg eines requests durch mein lab (diese seite als beispiel):', 't-dim');
