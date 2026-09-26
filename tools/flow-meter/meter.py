@@ -322,13 +322,16 @@ def _dump(counts: dict, w_from: float, w_to: float, args, dropped: int = 0,
     if not counts:
         print("  (kein Gast-Traffic)")
         return
-    for (src, dst, proto, port), (nbytes, packets) in sorted(
+    for (src, dst, proto, port), (nbytes, packets, port2) in sorted(
         counts.items(), key=lambda kv: -kv[1][0]
     ):
         rate = int(nbytes / span)
+        # Beide Ports zeigen: der kanonische allein nennt nur die Hälfte. Genau
+        # daran war nicht zu sehen, dass `727 → 2049` ein NFS-Strom ist.
+        dienst = f"{port}↔{port2}" if port2 and port2 != port else f"{port}"
         print(
             f"  {rate:>10} B/s  {nbytes:>9} B  {packets:>6} pkt  "
-            f"{src:<18} → {dst:<18} {port}/{proto}"
+            f"{src:<18} → {dst:<18} {dienst}/{proto}"
         )
 
 

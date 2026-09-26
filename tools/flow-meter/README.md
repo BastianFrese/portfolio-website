@@ -5,7 +5,8 @@ Zusammenfassung an die Portfolioseite, die daraus die Traffic-Raten in der
 Topologie zeichnet.
 
 **Es verlassen nur Namen den Knoten.** Die Auflösung IP → Name passiert lokal,
-der Payload kennt nur `name`, `proto` und `port`. Prüfbar am Ergebnis:
+der Payload kennt nur `name`, `proto` und Ports — und die bleiben im LAN: die
+öffentliche Antwort nennt ausschließlich das Dienst-Label. Prüfbar am Ergebnis:
 
 ```bash
 python3 /opt/flow-meter/meter.py --once --dump | grep -c '192\.168\.'   # muss 0 sein
@@ -25,7 +26,7 @@ Jedes Modul kennt nur die unter ihm:
 | `console.py` | `info` / `warn` — damit die Fachmodule stumm bleiben |
 | `wire.py` | Ethernet/IPv4 und der pcap-Strom → `Packet` |
 | `peers.py` | Gast- und Knotennamen, MAC-Brücke, **Dedupe-Regel** |
-| `flows.py` | Fenster, kanonische Paarung, Nutzlast |
+| `flows.py` | Fenster, kanonische Paarung samt Gegenstück-Port, Nutzlast |
 | `tls.py` | TLS-Kontext für den Push — und die Regel, dass `https://` ein Cafile verlangt |
 | `meter.py` | Prozess, Zeitgeber, CLI |
 | `selftest.py` | synthetische Frames — der einzige echte Unit-Test |
@@ -94,6 +95,35 @@ mit, bis `--exclude` gesetzt ist.
 
 Der `<knotenname>` muss **wortgleich** in `FLOWS__NODES` der App stehen — siehe
 die Betriebsregel unten.
+
+---
+
+## Warum **zwei** Ports reisen
+
+Der Meter sendet kein Label, sondern `port` **und** `port2` — den kleineren und den
+größeren der beiden. Die Paarung („eine Konversation = ein Eintrag", identisch auf
+allen Knoten) hängt weiter am **kleineren** Port; das Gegenstück reist nur mit.
+
+**Der Grund ist eine Falle, die den stärksten Strom der Anzeige betraf.** Ein
+NFS-Client mit **reserviertem** Quellport verbindet `727 → 2049`. Der kleinere Port
+ist der Clientport 727, und der steht in keiner Dienst-Tabelle → das Paar hieß
+`sonstiges`. Genau so stand das Paar `prox1 → truenas` mit 25 MB/s in der Anzeige.
+
+Deshalb entscheidet **die App**, welcher der beiden Ports das Label bestimmt — sie
+ist die einzige Stelle mit der Tabelle (siehe „Fallstricke"). Der erste Treffer
+gewinnt:
+
+| `port` | `port2` | Label |
+|---|---|---|
+| 727 | 2049 | `nfs` — der zweite Port hat einen Eintrag |
+| 11434 | 41000 | `ollama` — der erste Port hat einen Eintrag |
+| 700 | 701 | `sonstiges` — **keiner** hat einen; das ist die einzige Stelle, die warnt |
+| 0 | 0 | `icmp` — ICMP hat auf beiden Seiten keinen Port |
+
+**Rückwärtskompatibel:** fehlt `port2`, gilt allein `port` — ein Knoten ohne das
+Feld liefert weiter gültige Fenster. Der Rollout läuft deshalb Knoten für Knoten.
+Steht das Feld da und ist unbrauchbar (kein `long`, negativ, > 65535), wird der
+**Eintrag** verworfen und gezählt — dieselbe Regel wie bei `port`: nicht raten.
 
 ---
 
@@ -242,6 +272,9 @@ python3 /opt/flow-meter/meter.py --once --dump --node <knotenname>
 #   Ohne --url gibt es nichts abzuleiten, also erscheint hier auch der eigene
 #   Push (Ziel:Ingest-Port). Das ist die Sicht des Messpunkts, nicht die der
 #   Anzeige — kein Fehler. Mit --url verschwindet er.
+#
+#   `--dump` nennt **beide** Ports (`727↔2049/tcp`). Der kanonische allein zeigt nur
+#   die Hälfte — genau daran war nicht zu sehen, dass dieser Strom NFS ist.
 
 # Peertabelle: wen kennt der Meter überhaupt, und welchem Knoten gehört wer?
 python3 /opt/flow-meter/meter.py --peers
@@ -282,6 +315,17 @@ Fehlersuche beim ersten Start (siehe „Fallstricke").
   zweiter Wert kann nicht mehr davon abweichen. Der Selbsttest prüft seither
   beide Richtungen **und** die Gegenprobe (ohne Ausschluss müssen beide Paare
   durchkommen — sonst wäre der Test grün, ohne etwas zu beweisen).
+- **NFS stand als `sonstiges` da — der Dienst ist nicht immer der kleinere Port.**
+  Die kanonische Paarung nimmt den kleineren der beiden Ports. Ein NFS-Client mit
+  **reserviertem** Quellport bricht das: `727 → 2049`, min = 727, und 727 kennt keine
+  Tabelle. Betroffen war ausgerechnet das **stärkste** gemessene Paar überhaupt
+  (`prox1 → truenas`, 25 MB/s) — und es erklärt die **hunderte** Zeilen
+  `unbekannter port 600–1022` im App-Journal, eine je NFS-Mount und Clientport.
+  Belegt nicht durch Vermutung, sondern per `tcpdump`: die Nutzlast sagte
+  `NFS request xid … getattr fh`. Behoben, indem das Gegenstück als `port2` mitreist
+  und **die App** wählt — die Tabelle bleibt bewusst an einer Stelle.
+  `sonstiges` war nie eine Falschaussage, nur unpräzise; deshalb war es eine
+  Beobachtung und kein Alarm.
 
 ---
 

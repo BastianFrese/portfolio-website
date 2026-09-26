@@ -3,8 +3,8 @@
 Das ist der einzige echte Unit-Test dieses Werkzeugs. Er deckt die fummeligste
 Logik ab: Frame-Parsing inklusive VLAN und Fragmenten, die pcap-Byte-Zählung aus
 `orig_len`, die MAC-Brücke für DHCP-Gäste, die Dedupe-Regel, die kanonische
-Paarung, die Obergrenze, die TLS-Regel — und dass keine Adresse in der Nutzlast
-landet.
+Paarung samt Gegenstück-Port, die Obergrenze, die TLS-Regel — und dass keine
+Adresse in der Nutzlast landet.
 
 Läuft überall, auch auf einem Windows-Arbeitsplatz: `python meter.py --selftest`.
 
@@ -317,7 +317,36 @@ def selftest(parser=None) -> int:
         key, slot = next(iter(counts.items()))
         check(slot[0] == 150 and slot[1] == 2, f"Bytes nicht summiert: {slot}")
         check(key[3] == 22, f"Dienstport nicht gewählt: {key[3]}")
+        check(slot[2] == 41000, f"Gegenstück nicht mitgeführt: {slot}")
         check(key[0] == "gast-a" and key[1] == "gast-b", f"kanonische Ordnung falsch: {key[:2]}")
+
+    # --- Der Dienstport ist nicht immer der kleinere ---------------------
+    #
+    # Genau der Fall, der die App zwingt, zwischen zwei Ports zu wählen: ein
+    # NFS-Client mit **reserviertem** Quellport verbindet `727 → 2049`. Der
+    # kleinere Port ist der Clientport, und der steht in keiner Dienst-Tabelle
+    # — der Strom hieße `sonstiges`, obwohl 2049 als `nfs` bekannt ist. Deshalb
+    # reist das Gegenstück mit. Der Meter entscheidet hier **nichts**: die
+    # Tabelle steht einmal in der App, nicht dreimal auf den Knoten.
+    window = Window(peers, "knoten-1")
+    nfs = _eth(_MAC_A, _MAC_B, ETHERTYPE_IPV4, _ipv4(_T_A, _T_B, IPPROTO_TCP, _ports(727, 2049)))
+    window.add(parse_frame(nfs), 100)
+    counts, _ = window.take()
+    check(len(counts) == 1, f"NFS-Frame ergab {len(counts)} Einträge")
+    if len(counts) == 1:
+        key, slot = next(iter(counts.items()))
+        check(key[3] == 727, f"kleinerer Port nicht gewählt: {key[3]}")
+        check(slot[2] == 2049, f"Gegenstück nicht mitgesendet: {slot}")
+
+    # ICMP hat auf beiden Seiten keinen Port. `port2` muss dann 0 sein und darf
+    # nicht etwa aus Nutzdaten gelesen werden.
+    window = Window(peers, "knoten-1")
+    window.add(parse_frame(_eth(_MAC_A, _MAC_B, ETHERTYPE_IPV4,
+                               _ipv4(_T_A, _T_B, IPPROTO_ICMP, b"\x08\x00"))), 100)
+    counts, _ = window.take()
+    if counts:
+        _, slot = next(iter(counts.items()))
+        check(slot[2] == 0, f"ICMP bekam ein Gegenstück: {slot}")
 
     # --- Eigener Push zählt nicht mit -----------------------------------
     #
@@ -383,6 +412,9 @@ def selftest(parser=None) -> int:
     check("192.0.2." not in blob and "198.51.100." not in blob, "IP in der Nutzlast")
     check(payload["window"]["from"] == "2023-11-14T22:13:20Z", "Zeitstempel nicht UTC-ISO")
     check(all(f["bytes"] > 0 for f in payload["flows"]), "leere Ströme in der Nutzlast")
+    # Ohne dieses Feld kann die App den Dienst nicht bestimmen, wenn der kleinere
+    # Port der Clientport ist — der Fehler wäre still: nur ein unpräziseres Label.
+    check(all("port2" in f for f in payload["flows"]), "port2 fehlt in der Nutzlast")
 
     if parser is not None:
         failures.extend(cli_wiring(parser))

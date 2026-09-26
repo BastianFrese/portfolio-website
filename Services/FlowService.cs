@@ -5,7 +5,8 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Portfolio.Services;
 
-public sealed record FlowSample(string From, string To, int Port, string Proto, long Bytes, long Packets);
+public sealed record FlowSample(string From, string To, int Port, int Port2, string Proto,
+                                long Bytes, long Packets);
 
 public sealed record FlowWindow(string Node, DateTimeOffset From, DateTimeOffset To,
                                 List<FlowSample> Flows, int Dropped, int Truncated, int Rejected);
@@ -125,9 +126,22 @@ public sealed class FlowService(IConfiguration config, ILogger<FlowService> logg
     }
 
     /// <summary>Bekannte Ports → Dienst-Label. Rein und ohne Nebenwirkung, damit prüfbar.</summary>
-    public static string ServiceLabel(int port, string proto)
+    /// <param name="port">Der kleinere der beiden Ports — so paart der Meter.</param>
+    /// <param name="port2">Das Gegenstück, <c>0</c> wenn es keines gibt (ICMP, Fragmente,
+    /// oder ein Meter ohne dieses Feld).</param>
+    /// <remarks><b>Warum zwei Ports:</b> der kleinere ist <i>meist</i> der Dienst, aber nicht
+    /// immer — ein NFS-Client mit reserviertem Quellport verbindet <c>727 → 2049</c>, und dann
+    /// gewinnt <c>727</c>, ein Port ohne Label. Der Strom hieße <c>sonstiges</c>, obwohl
+    /// <c>2049</c> als <c>nfs</c> bekannt ist. Deshalb reist das Gegenstück mit, und die
+    /// Entscheidung fällt <b>hier</b>: die Tabelle steht einmal in der App, nicht dreimal auf
+    /// den Knoten (dieselbe Begründung wie beim Ingest-Secret, nur umgekehrt).
+    ///
+    /// Der erste Treffer gewinnt. Ein bereits richtiges Label kann sich damit nicht ändern:
+    /// ist <paramref name="port"/> bekannt, bleibt es dabei.</remarks>
+    public static string ServiceLabel(int port, int port2, string proto)
     {
         if (LabelsByPort.TryGetValue(port, out var label)) return label;
+        if (LabelsByPort.TryGetValue(port2, out var label2)) return label2;
         // ICMP hat keine Ports — ohne diesen Fall bliebe jede Ping-Zeile `sonstiges`.
         if (port == 0 && proto == "icmp") return "icmp";
         return "sonstiges";
@@ -239,7 +253,17 @@ public sealed class FlowService(IConfiguration config, ILogger<FlowService> logg
                 !TryLong(el, "packets", out var packets) || packets is < 0 or > MaxBytesPerWindow)
             { rejected++; continue; }
 
-            flows.Add(new FlowSample(fromName!, toName!, (int)port, proto, bytes, packets));
+            // `port2` ist **optional**: ein Meter ohne dieses Feld liefert weiter
+            // gültige Fenster, der Rollout läuft Knoten für Knoten. Fehlt es,
+            // bleibt es 0 — „kein Gegenstück", nicht „Port 0". Steht es da und ist
+            // unbrauchbar, gilt dieselbe Regel wie für `port`: Eintrag verwerfen
+            // und zählen, nicht raten.
+            var port2 = 0L;
+            if (el.TryGetProperty("port2", out _) &&
+                (!TryLong(el, "port2", out port2) || port2 is < 0 or > 65535))
+            { rejected++; continue; }
+
+            flows.Add(new FlowSample(fromName!, toName!, (int)port, (int)port2, proto, bytes, packets));
         }
 
         window = new FlowWindow(node, from, to, flows,
@@ -297,8 +321,13 @@ public sealed class FlowService(IConfiguration config, ILogger<FlowService> logg
         }
 
         foreach (var flow in window.Flows)
-            if (flow.Port > 0 && !IsKnownPort(flow.Port, flow.Proto))
-                WarnPortOnce(flow.Port, flow.Proto);
+            // Nur melden, wenn **keiner** der beiden Ports bekannt ist. Sonst
+            // erzeugte jeder NFS-Strom mit reserviertem Clientport eine Meldung,
+            // obwohl 2049 in der Tabelle steht — genau die Flut, die diese
+            // Tabelle verhindern soll.
+            if (flow.Port > 0 && !IsKnownPort(flow.Port, flow.Proto)
+                              && !IsKnownPort(flow.Port2, flow.Proto))
+                WarnPortOnce(flow.Port, flow.Port2, flow.Proto);
 
         if (window.Dropped > 0)
             logger.LogWarning("flow-meter {Node}: {Dropped} pakete vom kernel verworfen",
@@ -314,7 +343,7 @@ public sealed class FlowService(IConfiguration config, ILogger<FlowService> logg
         var contribution = new ConcurrentDictionary<Pair, long>();
         foreach (var flow in window.Flows)
         {
-            var pair = new Pair(flow.From, flow.To, ServiceLabel(flow.Port, flow.Proto));
+            var pair = new Pair(flow.From, flow.To, ServiceLabel(flow.Port, flow.Port2, flow.Proto));
             contribution.AddOrUpdate(pair, flow.Bytes, (_, old) => old + flow.Bytes);
         }
         _slots.GetOrAdd(slot, _ => new ConcurrentDictionary<string, ConcurrentDictionary<Pair, long>>())
@@ -355,12 +384,22 @@ public sealed class FlowService(IConfiguration config, ILogger<FlowService> logg
 
     /// <summary>Unbekannte Ports einmal je Port melden. <c>LogWarning</c>, nicht
     /// <c>LogInformation</c> — die App steht auf <c>Default: Warning</c>.</summary>
-    private void WarnPortOnce(int port, string proto)
+    /// <remarks>Genannt werden <b>beide</b> Ports: ohne das Gegenstück sieht die Zeile wie
+    /// ein Port-Scan aus, obwohl sie oft nur die Clientseite eines Dienstes ist, den die
+    /// Tabelle nicht kennt.</remarks>
+    private void WarnPortOnce(int port, int port2, string proto)
     {
         // Die Menge ist gedeckelt: sie wächst sonst mit jedem je gesehenen Port
         // und wäre neben dem Ring die einzige Struktur ohne Obergrenze.
         if (_warnedPorts.Count > 4096) _warnedPorts.Clear();
-        if (_warnedPorts.TryAdd($"{port}/{proto}", 0))
+        // Der Schlüssel bleibt der **kanonische** Port, nicht das Paar: sonst
+        // erzeugte ein einziger unbekannter Dienst mit wechselnden Clientports je
+        // Clientport eine Meldung — bei 200 Clients also 200 Zeilen für einen
+        // Befund. Das Gegenstück gehört in die Meldung, nicht in den Schlüssel.
+        if (!_warnedPorts.TryAdd($"{port}/{proto}", 0)) return;
+        if (port2 > 0 && port2 != port)
+            logger.LogWarning("unbekannter port {Port}↔{Port2}/{Proto} → sonstiges", port, port2, proto);
+        else
             logger.LogWarning("unbekannter port {Port}/{Proto} → sonstiges", port, proto);
     }
 

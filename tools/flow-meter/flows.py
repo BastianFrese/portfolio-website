@@ -98,10 +98,20 @@ class Window:
         # 8006, 9100, 11434) und nicht der Client. Grenzfall: zwei hohe Ports
         # (Client 3000 → Dienst 5432) — dann steht der Clientport da, und das
         # Label heißt ehrlich `sonstiges`.
+        #
+        # **Nicht immer richtig:** ein NFS-Client mit reserviertem Quellport
+        # verbindet `727 → 2049`, und dann gewinnt 727 — ein Port ohne Label.
+        # Deshalb reist das Gegenstück als `port2` mit, und **die App**
+        # entscheidet: sie kennt die Dienst-Tabelle, der Meter nicht (sie steht
+        # bewusst nur einmal). Die Paarung selbst bleibt der kleinere Port —
+        # daran hängt, dass eine Konversation **einen** Eintrag ergibt und beide
+        # Knoten dieselbe Zeile rechnen.
         if packet.sport and packet.dport:
             port = min(packet.sport, packet.dport)
+            port2 = max(packet.sport, packet.dport)
         else:
             port = packet.sport or packet.dport
+            port2 = 0
 
         key = (peers.name_of(first), peers.name_of(second), packet.proto, port)
         with self._lock:
@@ -110,7 +120,12 @@ class Window:
                 slot[0] += nbytes
                 slot[1] += 1
             elif len(self._counts) < MAX_FLOWS:
-                self._counts[key] = [nbytes, 1]
+                # `port2` steht für die ganze Gruppe: das Gegenstück des kleinen
+                # Ports, wie es das erste Paket zeigte. Bei mehreren Verbindungen
+                # mit gleichem kleinem Port (der Normalfall: ein Dienst, viele
+                # Clients) greift in der App ohnehin der kleinere, gelabelte
+                # Port — dort ist die Wahl also ohne Wirkung.
+                self._counts[key] = [nbytes, 1, port2]
             else:
                 self._truncated += 1
 
@@ -138,6 +153,10 @@ def build_payload(
             "from": key[0],
             "to": key[1],
             "port": key[3],
+            # Das Gegenstück des kleinen Ports. Die App wählt daraus das Label,
+            # weil nur sie die Dienst-Tabelle kennt — ohne dieses Feld hieße
+            # jeder NFS-Strom mit reserviertem Clientport `sonstiges`.
+            "port2": slot[2],
             "proto": key[2],
             "bytes": slot[0],
             "packets": slot[1],
