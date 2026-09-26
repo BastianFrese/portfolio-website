@@ -100,9 +100,17 @@
         const line = document.createElement('div');
         line.className = 'nbar-row';
         line.innerHTML = '<span class="lbl">' + row.lbl + '</span>'
-          + '<div class="nbar-track"><div class="nbar-fill ' + pctClass(row.pct)
-          + '" style="width:' + row.pct + '%"></div></div>'
+          + '<div class="nbar-track"></div>'
           + '<span class="val">' + esc(row.val) + '</span>';
+        // Die Breite kommt über die CSSOM, nicht als style-Attribut: die CSP der
+        // Seite ist `style-src 'self'` ohne 'unsafe-inline' und verwirft solche
+        // Attribute **still** — kein Fehler, keine Meldung, der Balken bliebe
+        // leer. `fill.style.width = …` ist davon ausdrücklich nicht betroffen,
+        // `setAttribute('style', …)` und `.style.cssText` dagegen schon.
+        const fill = document.createElement('div');
+        fill.className = 'nbar-fill ' + pctClass(row.pct);
+        fill.style.width = row.pct + '%';
+        line.querySelector('.nbar-track').append(fill);
         box.append(line);
       }
       nodeStats.append(box);
