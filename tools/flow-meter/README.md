@@ -319,13 +319,45 @@ Fehlersuche beim ersten Start (siehe „Fallstricke").
   Die kanonische Paarung nimmt den kleineren der beiden Ports. Ein NFS-Client mit
   **reserviertem** Quellport bricht das: `727 → 2049`, min = 727, und 727 kennt keine
   Tabelle. Betroffen war ausgerechnet das **stärkste** gemessene Paar überhaupt
-  (`prox1 → truenas`, 25 MB/s) — und es erklärt die **hunderte** Zeilen
-  `unbekannter port 600–1022` im App-Journal, eine je NFS-Mount und Clientport.
-  Belegt nicht durch Vermutung, sondern per `tcpdump`: die Nutzlast sagte
-  `NFS request xid … getattr fh`. Behoben, indem das Gegenstück als `port2` mitreist
-  und **die App** wählt — die Tabelle bleibt bewusst an einer Stelle.
-  `sonstiges` war nie eine Falschaussage, nur unpräzise; deshalb war es eine
-  Beobachtung und kein Alarm.
+  (`prox1 → truenas`, 25 MB/s) — und es erklärt den Großteil der **hunderte**
+  Zeilen `unbekannter port 600–1022` im App-Journal: das sind die reservierten
+  **Quell**ports des NFS-Clients, einer je Mount. Belegt nicht durch Vermutung,
+  sondern per `tcpdump` — die Nutzlast sagte `NFS request xid … getattr fh`.
+  Behoben, indem das Gegenstück als `port2` mitreist und **die App** wählt; die
+  Tabelle bleibt bewusst an einer Stelle. `sonstiges` war nie eine Falschaussage,
+  nur unpräzise — deshalb war es eine Beobachtung und kein Alarm.
+
+  **Nicht alles davon war NFS-Datenverkehr, und der Rest bleibt `sonstiges`.**
+  Dieselben reservierten Quellports gehen auf **zwei** verschiedene Gegenstücke:
+  auf `2049` (Datentransfer — jetzt `nfs`) und auf den **MOUNT-RPC-Dienst**
+  (`mountd`), der per rpcbind auf einem **dynamisch** vergebenen hohen Port sitzt
+  (im Mitschritt `36249`). Belegt wieder per `tcpdump`: dessen Nutzlast nennt den
+  eigenen Knotennamen und die **Exportliste** (`/mnt/…/media`, `/mnt/…/test`) —
+  das ist die MOUNT-Prozedur, kein Datentransfer. Dieser Port **gehört nicht in
+  die Tabelle**: nach dem nächsten Dienstneustart ist er ein anderer, und ein
+  Eintrag darauf wäre eine *falsche* Aussage statt einer ungenauen. `sonstiges`
+  ist hier die richtige Antwort — und bleibt es.
+
+  Messbar ist der Gewinn trotzdem: die Warnzeilen fielen im vergleichbaren
+  Zeitraum von **51 auf 11**, und die verbliebenen nennen **beide** Ports
+  (`unbekannter port 642↔36249/tcp`). Aus einer Flut ununterscheidbarer Zeilen ist
+  ein lesbarer Befund geworden — man sieht jetzt, *dass* es ein Paar ist und *wer*
+  mit *wem* redet, statt einen Port-Scan zu vermuten.
+- **Beim Nachlegen einzelner Module das Ausführungsbit erhalten.** Ein
+  `chmod 0644 /opt/flow-meter/*.py` über den ganzen Ordner nimmt `meter.py` das
+  `x`. Der Dienst stirbt beim nächsten Neustart mit `203/EXEC` und der Zeile
+  `Unable to locate executable '/opt/flow-meter/meter.py': Permission denied` —
+  die zeigt auf einen **fehlenden Pfad**, nicht auf ein falsches Dateirecht, und
+  der Dateiinhalt ist dabei einwandfrei (die Prüfsumme stimmt). Richtig ist der
+  Doppelschritt aus der Installation:
+  `chmod 0644 *.py *.service && chmod 0755 meter.py cpu-check.sh`.
+  **Zweite Falle direkt dahinter:** nach wenigen Fehlversuchen greift systemds
+  Start-Ratenbegrenzung, und danach startet der Dienst auch nach der Korrektur
+  nicht mehr — `Start request repeated too quickly`. Vorher
+  `systemctl reset-failed flow-meter`.
+  Und die eigentliche Tücke: der Ausfall ist **still**. In der Anzeige steht
+  `keine daten` — genau wie bei einem sauberen Rollback. Auffallen kann er nur im
+  Journal des Knotens.
 
 ---
 
@@ -359,6 +391,16 @@ Das ist das **Rollback-Akzeptanzkriterium**: die Anzeige springt von selbst auf
 Ausfall an der Wanduhr (`stale`), sie muss nicht angefasst werden. Ein einzelner
 Knoten kann genauso stillgelegt werden; die anderen messen weiter, und die
 Paare, die nur er zählen durfte, erscheinen als `—` statt als falsche Zahl.
+
+⚠️ Daraus folgt die **Gegenrichtung**, und sie ist unangenehm: ein *abgestürzter*
+Meter sieht genauso aus wie ein *absichtlich* gestoppter. `keine daten` ist **kein**
+Gesundheitsindikator. In den ersten ~15 Minuten nennt der Kopf noch den fehlenden
+Messpunkt (`ohne messpunkt: …`), danach altert sein Marker aus dem Ring, und die
+beiden Fälle sind nicht mehr zu unterscheiden. Wer wissen will, ob wirklich
+gemessen wird, fragt den **Knoten**: `systemctl is-active flow-meter` — oder liest
+die `fenster #`-Zeilen im Journal, die ein gesunder Meter **jede** Fensterlänge
+schreibt (siehe „Läuft es?"). Genau dieser Unterschied hat beim Rollout des
+Zwei-Port-Vertrags zugeschlagen; der Fallstrick steht unten.
 
 Rückstandsfrei entfernen:
 
