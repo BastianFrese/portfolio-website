@@ -54,6 +54,17 @@ internal static class PortfolioFacts
            PDF-Rechnungserzeugung, Admin-Bereich. Gebaut und betrieben für einen
            realen Kunden mit echtem Bestellvolumen; der Betrieb ist seit 09/2026
            beendet, der Shop bleibt als Referenz erreichbar.
+        4. Telefon-Assistent — Projekt im Aufbau, seit 09/2026. Eigener SIP-Zugang
+           auf der eigenen Telefonleitung, kein Fremdanbieter. Der Assistent nimmt
+           Anrufe an und begrüßt den Anrufer selbst; jede Annahme meldet sich
+           sofort auf dem Handy. Ein selbst geschriebener Umschreiber im
+           Verbindungsaufbau hält private Adressen aus dem SIP-Handshake heraus.
+           Offen ist der Rückweg — der Assistent hört den Anrufer noch nicht.
+           Das Ziel: Anrufe, die er nicht selbst annehmen kann, landen beim
+           Assistenten und kommen als Nachricht bei ihm an; der Dialog soll mit
+           lokaler Spracherkennung und Sprachausgabe laufen, ohne Cloud.
+           Behaupte nicht, der Assistent sei fertig, führe schon Gespräche oder
+           nehme Termine an.
 
         INFRASTRUKTUR
         Ein 3-Knoten-Hypervisor-Cluster mit rund 30 virtuellen Systemen: Reverse

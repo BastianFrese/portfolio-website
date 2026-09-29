@@ -658,7 +658,7 @@
       { t: '[  OK  ] health  /health/live → "healthy"', c: 't-ok' },
       { t: '[  OK  ] fleet-endpoint an proxmox cluster-api', c: 't-ok' },
       { t: '[  OK  ] ki-chat an lokale gpu (ollama)', c: 't-ok' },
-      { t: '[  OK  ] projekte 4 live · echte nutzer · 1 beta', c: 't-ok' },
+      { t: '[  OK  ] projekte 4 · 3 in echtem betrieb · 1 im aufbau', c: 't-ok' },
       { t: '[  OK  ] tests 340+ automatisiert, grün', c: 't-ok' },
       { t: '[  OK  ] ki lokal · 0 cloud-calls', c: 't-ok' },
       { t: '[  OK  ] offene ports: 0', c: 't-ok' },
@@ -789,6 +789,7 @@
         line('erdi-erc.de .............. liga-plattform, produktiv', 't-ok');
         line('loren-flowers.shop ....... shop, abgeschlossen (Referenz online)', 't-ok');
         line('erctelemetry ............. desktop-app, beta', 't-warn');
+        line('telefon-assistent ........ anrufannahme, im aufbau', 't-warn');
       },
       infrastruktur: () => line('3 knoten · rund 30 systeme · monitoring · backups · zonen. alles oben auf der seite.'),
       ki: () => line('lokal statt cloud. betreuungs-agent + ki-chat hier im terminal (befehl: chat).'),
