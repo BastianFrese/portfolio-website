@@ -447,6 +447,10 @@ h2::before { content: '## '; color: var(--accent); }
 .bad   { fill: var(--bad); }
 .flow  { stroke: #6fae9a; stroke-width: 1.6; fill: none; marker-end: url(#arr); }
 .flow.bad { stroke: var(--bad); stroke-dasharray: 5 4; marker-end: url(#arrBad); }
+
+/* ---- Telefon-Assistent-SVG (eigene Marker, damit die IDs eindeutig bleiben) ---- */
+.flowTel     { stroke: #6fae9a; stroke-width: 1.6; fill: none; marker-end: url(#arrTel); }
+.flowTel.bad { stroke: var(--bad); stroke-dasharray: 5 4; marker-end: url(#arrTelBad); }
 svg { width: 100%; height: auto; }
 
 /* ---- Fleet-Tiles ---- */
