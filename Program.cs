@@ -145,6 +145,31 @@ app.MapGet("/api/fleet", async (FleetService fleet, CancellationToken ct) =>
     }
 });
 
+// Echtzeit-Fleet: Server-Sent Events statt 60-s-Polling im Browser. Der Client hält
+// eine Verbindung, hier wird alle 5 s derselbe (gecachte) Zustand gepusht. Trennt der
+// Browser, bricht der Request-Abbruch (ct) die Schleife ab.
+app.MapGet("/api/fleet/stream", async (HttpContext ctx, FleetService fleet, CancellationToken ct) =>
+{
+    ctx.Response.Headers.ContentType = "text/event-stream";
+    ctx.Response.Headers.CacheControl = "no-cache";
+    ctx.Response.Headers.Connection = "keep-alive";
+
+    try
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            var data = await fleet.GetAsync(ct);
+            await ctx.Response.WriteAsync("data: " + JsonSerializer.Serialize(data, JsonSerializerOptions.Web) + "\n\n", ct);
+            await ctx.Response.Body.FlushAsync(ct);
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        // Client hat getrennt — erwartet, nichts zu tun.
+    }
+});
+
 app.MapGet("/api/health", async (HealthService health, CancellationToken ct) =>
 {
     try

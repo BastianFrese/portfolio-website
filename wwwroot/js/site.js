@@ -151,21 +151,24 @@
       fleetGrid.append(tile);
     }
     fleetMeta.innerHTML = 'fleet: <span class="t-ok">' + data.running + '/' + data.total
-      + ' systeme aktiv</span> · quelle: proxmox cluster-api · cache 45 s';
+      + ' systeme aktiv</span> · quelle: proxmox cluster-api · live · alle 5 s';
   };
 
-  const loadFleet = () => {
-    if (!fleetGrid) return;
-    fetch('/api/fleet', { cache: 'no-store' })
-      .then((r) => { if (!r.ok) throw 0; return r.json(); })
-      .then(renderFleet)
-      .catch(() => {
-        if (fleetMeta) fleetMeta.textContent = 'fleet-api nicht erreichbar — auch das wird hier ehrlich angezeigt.';
-      });
-  };
   if (fleetGrid) {
-    loadFleet();
-    setInterval(loadFleet, 60000);
+    // Echtzeit statt Polling: Server-Sent Events. EventSource verbindet sich nach einem
+    // Abbruch selbst wieder — wir müssen nur das Ereignis verarbeiten und ehrlich
+    // markieren, wenn der Strom gerade unterbrochen ist.
+    const fleetSrc = new EventSource('/api/fleet/stream');
+    fleetSrc.onmessage = (ev) => {
+      try {
+        renderFleet(JSON.parse(ev.data));
+      } catch (_) {
+        if (fleetMeta) fleetMeta.textContent = 'fleet-daten nicht lesbar — auch das wird hier ehrlich angezeigt.';
+      }
+    };
+    fleetSrc.onerror = () => {
+      if (fleetMeta) fleetMeta.textContent = 'fleet-stream unterbrochen — verbinde neu …';
+    };
   }
 
   /* ---------- Projekt-Health-Board ---------- */

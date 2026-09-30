@@ -16,7 +16,7 @@ public sealed record FleetResponse(int Total, int Running, List<FleetGuest> Gues
 /// </summary>
 public sealed class FleetService(IHttpClientFactory factory, IMemoryCache cache, IConfiguration config)
 {
-    private const int CacheSeconds = 45;
+    private const int CacheSeconds = 5;
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
     // Kumulative Zähler des letzten Abrufs: key = "node/name"
