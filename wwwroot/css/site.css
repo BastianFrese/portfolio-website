@@ -556,6 +556,15 @@ svg { width: 100%; height: auto; }
   text-decoration: none; border-bottom: 1px solid var(--accent-dim);
 }
 .contact-mail a:hover { border-bottom-color: var(--accent); }
+.contact-github { font-family: var(--mono); font-size: 13px; color: var(--faint); margin-top: 16px; }
+
+/* ---- Projekt-Karten: Link zum Quellcode ---- */
+.card-link {
+  font-family: var(--mono); color: var(--accent);
+  text-decoration: none; border-bottom: 1px solid var(--accent-dim);
+  white-space: nowrap;
+}
+.card-link:hover { border-bottom-color: var(--accent); }
 .contact-copy {
   font-family: var(--mono); font-size: 12px; color: var(--faint);
   background: none; border: 1px solid var(--border); border-radius: 6px;
