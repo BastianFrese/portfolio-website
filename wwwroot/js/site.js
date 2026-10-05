@@ -2,7 +2,16 @@
 (() => {
   'use strict';
 
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* ------------------------------------------------------------------------
+     Die Seite liefert `script-src 'self'` und `style-src 'self'` **ohne**
+     `'unsafe-inline'`. Inline-Handler (`onclick="…"`) und Inline-Styles
+     (`style="…"`) verwirft der Browser deshalb still — kein Fehler, keine
+     Meldung, der Handler läuft schlicht nie. Aus dem gleichen Grund laufen
+     Event-Bindings hier zentral über `on()` (nie als Attribut), Layout über
+     die CSSOM (nie als style-String) und HTML über `escHtml` / `h()` (nie
+     als zusammengesetzter String mit vergessener `esc()`-Stelle).
+     ------------------------------------------------------------------------ */
+
   // `"` und `>` fehlten: ohne `"` ist jeder Attributwert eine Lücke, und
   // ohne `>` lässt sich ein Tag nicht sauber schließen. `String(s)` davor,
   // weil `s.replace` bei einer Zahl wirft — der Aufruf, der das auslöst,
@@ -10,6 +19,35 @@
   const esc = (s) => String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  /* Tagged template: `escHtml`<b>${x}</b>`` escapt jeden Einsatz. Das ist die
+     robuste Fassung von `'<b>' + esc(x) + '</b>'` — das esc() ist nicht mehr
+     optional, sondern strukturell unmöglich zu vergessen. */
+  const escHtml = (parts, ...vals) => {
+    let out = parts[0];
+    for (let i = 0; i < vals.length; i += 1) out += esc(vals[i]) + parts[i + 1];
+    return out;
+  };
+
+  /* Element-Fabrik: `h('div', 'klasse', 'inhalt')`. Kürzt das immergleiche
+     createElement/className/textContent-Trio und macht explizit, dass Text
+     **nicht** als HTML interpretiert wird. */
+  const h = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  };
+
+  /* Ein einziger Einstiegspunkt für Event-Bindings. Übernimmt den sonst
+     überall wiederholten Null-Check und hält Listener aus Markup heraus, wo
+     die CSP sie sowieso verwerfen würde. */
+  const on = (target, event, handler, opts) => {
+    if (target) target.addEventListener(event, handler, opts);
+    return target;
+  };
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- Scroll-Reveal ---------- */
   const revealEls = document.querySelectorAll('.reveal');
@@ -31,11 +69,11 @@
       .then((r) => { if (!r.ok) throw 0; return r.json(); })
       .then((d) => {
         const s = d.uptimeSeconds || 0;
-        const h = Math.floor(s / 3600);
-        const m = Math.floor((s % 3600) / 60);
+        const hrs = Math.floor(s / 3600);
+        const mins = Math.floor((s % 3600) / 60);
         chip.classList.remove('loading');
         chip.textContent = 'service: active (running) · betrieb: '
-          + (h > 0 ? h + ' h ' + m + ' min' : m + ' min');
+          + (hrs > 0 ? hrs + ' h ' + mins + ' min' : mins + ' min');
       })
       .catch(() => {
         chip.classList.remove('loading');
@@ -63,11 +101,11 @@
   const fmtUptime = (s) => {
     if (!s || s < 60) return s ? '< 1 min' : '—';
     const d = Math.floor(s / 86400);
-    const h = Math.floor((s % 86400) / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    if (d > 0) return d + 'd ' + h + 'h';
-    if (h > 0) return h + 'h ' + m + 'min';
-    return m + ' min';
+    const hrs = Math.floor((s % 86400) / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    if (d > 0) return d + 'd ' + hrs + 'h';
+    if (hrs > 0) return hrs + 'h ' + mins + 'min';
+    return mins + ' min';
   };
   const fmtGb = (bytes) => Math.round(bytes / (1024 * 1024 * 1024)) + ' GB';
   // bytes/s → kompakt (unter 1 KB/s → null, nicht anzeigen)
@@ -86,31 +124,32 @@
     for (const n of nodes) {
       const cpuPct = Math.round(n.cpu * 100);
       const memPct = n.maxMem ? Math.round(n.mem / n.maxMem * 100) : 0;
-      const box = document.createElement('div');
-      box.className = 'nbar';
-      const head = document.createElement('div');
-      head.className = 'nbar-head';
-      head.innerHTML = '<strong>' + esc(n.name) + '</strong><span>' + esc(n.status)
-        + ' · up ' + esc(fmtUptime(n.uptimeSeconds)) + '</span>';
+      const box = h('div', 'nbar');
+      const head = h('div', 'nbar-head');
+      head.append(
+        h('strong', null, n.name),
+        h('span', null, n.status + ' · up ' + fmtUptime(n.uptimeSeconds))
+      );
       box.append(head);
       for (const row of [
         { lbl: 'cpu', pct: cpuPct, val: cpuPct + '%' },
         { lbl: 'ram', pct: memPct, val: fmtGb(n.mem) + ' / ' + fmtGb(n.maxMem) }
       ]) {
-        const line = document.createElement('div');
-        line.className = 'nbar-row';
-        line.innerHTML = '<span class="lbl">' + row.lbl + '</span>'
-          + '<div class="nbar-track"></div>'
-          + '<span class="val">' + esc(row.val) + '</span>';
+        const line = h('div', 'nbar-row');
         // Die Breite kommt über die CSSOM, nicht als style-Attribut: die CSP der
         // Seite ist `style-src 'self'` ohne 'unsafe-inline' und verwirft solche
         // Attribute **still** — kein Fehler, keine Meldung, der Balken bliebe
         // leer. `fill.style.width = …` ist davon ausdrücklich nicht betroffen,
         // `setAttribute('style', …)` und `.style.cssText` dagegen schon.
-        const fill = document.createElement('div');
-        fill.className = 'nbar-fill ' + pctClass(row.pct);
+        const fill = h('div', 'nbar-fill ' + pctClass(row.pct));
         fill.style.width = row.pct + '%';
-        line.querySelector('.nbar-track').append(fill);
+        const track = h('div', 'nbar-track');
+        track.append(fill);
+        line.append(
+          h('span', 'lbl', row.lbl),
+          track,
+          h('span', 'val', row.val)
+        );
         box.append(line);
       }
       nodeStats.append(box);
@@ -121,37 +160,29 @@
     if (!fleetGrid || !fleetMeta) return;
     lastFleet = data;
     renderTopology(data);
-    if (mFleet) mFleet.innerHTML = data.running + '/' + data.total + ' <span>aktiv</span>';
+    if (mFleet) mFleet.innerHTML = escHtml`${data.running}/${data.total} <span>aktiv</span>`;
     if (data.nodes) renderNodes(data.nodes);
     fleetGrid.textContent = '';
     for (const g of data.guests) {
       const up = g.status === 'running';
-      const tile = document.createElement('div');
-      tile.className = 'tile';
-      const head = document.createElement('div');
-      head.className = 'tile-head';
-      const dot = document.createElement('span');
-      dot.className = 'dot ' + (up ? 'up' : 'down');
-      const nameEl = document.createElement('span');
-      nameEl.className = 'tile-name';
-      nameEl.textContent = g.name;
+      const tile = h('div', 'tile');
+      const head = h('div', 'tile-head');
+      const nameEl = h('span', 'tile-name', g.name);
       nameEl.title = g.name;
-      const typeEl = document.createElement('span');
-      typeEl.className = 'tile-type';
-      typeEl.textContent = g.type;
-      head.append(dot, nameEl, typeEl);
-      const sub = document.createElement('div');
-      sub.className = 'tile-sub';
-      const nodeEl = document.createElement('span');
-      nodeEl.textContent = g.node;
-      const upEl = document.createElement('span');
-      upEl.textContent = up ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped';
-      sub.append(nodeEl, upEl);
+      head.append(
+        h('span', 'dot ' + (up ? 'up' : 'down')),
+        nameEl,
+        h('span', 'tile-type', g.type)
+      );
+      const sub = h('div', 'tile-sub');
+      sub.append(
+        h('span', null, g.node),
+        h('span', null, up ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped')
+      );
       tile.append(head, sub);
       fleetGrid.append(tile);
     }
-    fleetMeta.innerHTML = 'fleet: <span class="t-ok">' + data.running + '/' + data.total
-      + ' systeme aktiv</span> · quelle: proxmox cluster-api · live · alle 5 s';
+    fleetMeta.innerHTML = escHtml`fleet: <span class="t-ok">${data.running}/${data.total} systeme aktiv</span> · quelle: proxmox cluster-api · live · alle 5 s`;
   };
 
   if (fleetGrid) {
@@ -177,10 +208,8 @@
     if (!healthBoard || !Array.isArray(checks)) return;
     healthBoard.textContent = '';
     for (const c of checks) {
-      const chipEl = document.createElement('span');
-      chipEl.className = 'health-chip ' + (c.ok ? 'ok' : 'down');
-      chipEl.innerHTML = '<span class="dot"></span>' + esc(c.name)
-        + ' <span class="ms">' + (c.ok ? c.ms + ' ms · http ' + c.status : 'down') + '</span>';
+      const chipEl = h('span', 'health-chip ' + (c.ok ? 'ok' : 'down'));
+      chipEl.innerHTML = escHtml`<span class="dot"></span>${c.name} <span class="ms">${c.ok ? c.ms + ' ms · http ' + c.status : 'down'}</span>`;
       healthBoard.append(chipEl);
     }
   };
@@ -255,9 +284,9 @@
     let run = [];
     const flush = () => {
       if (run.length > 1) {
-        const line = document.createElementNS(SVG_NS, 'polyline');
-        line.setAttribute('points', run.join(' '));
-        svg.append(line);
+        const poly = document.createElementNS(SVG_NS, 'polyline');
+        poly.setAttribute('points', run.join(' '));
+        svg.append(poly);
       } else if (run.length === 1) {
         // Ein einzelner Messwert ist ein Punkt, keine Linie.
         const dot = document.createElementNS(SVG_NS, 'circle');
@@ -309,11 +338,8 @@
     const alt = row.querySelector('.topo-flow-rate');
     const altSpark = row.querySelector('.topo-flow-spark');
     if (altSpark) altSpark.remove();
-    const rate = alt || document.createElement('span');
-    if (!alt) {
-      rate.className = 'topo-flow-rate';
-      row.append(rate);
-    }
+    const rate = alt || h('span', 'topo-flow-rate');
+    if (!alt) row.append(rate);
     const leer = !hit || hit.bytesPerSecond === null || hit.bytesPerSecond === undefined;
     rate.classList.toggle('none', leer);
     rate.textContent = leer ? '—' : fmtRateFlow(hit.bytesPerSecond);
@@ -355,11 +381,9 @@
 
     if (head) {
       if (!d) {
-        head.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
-          + '<em>messung wird geladen …</em>';
+        head.innerHTML = '<strong>bekannte abhängigkeiten</strong><em>messung wird geladen …</em>';
       } else if (!live) {
-        head.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
-          + '<em>keine daten — die messung an den knoten-bridges liefert gerade nichts</em>';
+        head.innerHTML = '<strong>bekannte abhängigkeiten</strong><em>keine daten — die messung an den knoten-bridges liefert gerade nichts</em>';
       } else {
         // `measuredNodes` bleibt bis zu 15 min nach dem letzten Push gefüllt.
         // Es ist deshalb **kein** Live-Status und wird nur hier, im nicht-stalen
@@ -369,11 +393,7 @@
           .map((n) => n.name)
           .filter((n) => measured.indexOf(String(n).toLowerCase()) < 0);
         const sek = Math.max(0, Math.round((Date.now() - Date.parse(d.updatedAt)) / 1000));
-        head.innerHTML = '<strong>bekannte abhängigkeiten</strong>'
-          + '<em>live gemessen an den knoten-bridges · stand vor ' + sek + ' s'
-          + ' · messpunkte: ' + esc(measured.join(', ') || 'keine')
-          + (fehlend.length ? ' · ohne messpunkt: ' + esc(fehlend.join(', ')) : '')
-          + '</em>';
+        head.innerHTML = escHtml`<strong>bekannte abhängigkeiten</strong><em>live gemessen an den knoten-bridges · stand vor ${sek} s · messpunkte: ${measured.join(', ') || 'keine'}${fehlend.length ? ' · ohne messpunkt: ' + fehlend.join(', ') : ''}</em>`;
       }
     }
 
@@ -389,34 +409,21 @@
     }).sort((a, b) => b.bytesPerSecond - a.bytesPerSecond);
     if (rest.length === 0) return;
 
-    const h2 = document.createElement('div');
-    h2.className = 'topo-flows-head';
-    h2.innerHTML = '<strong>gemessen, aber nicht in der liste</strong><em>'
-      + (rest.length > FLOW_EXTRA_MAX
-        ? 'die ' + FLOW_EXTRA_MAX + ' stärksten von ' + rest.length + ' paaren ab 1 KB/s'
-        : 'alle ' + rest.length + ' paare ab 1 KB/s')
-      + '</em>';
-    extra.append(h2);
+    const subHead = h('div', 'topo-flows-head');
+    subHead.innerHTML = escHtml`<strong>gemessen, aber nicht in der liste</strong><em>${rest.length > FLOW_EXTRA_MAX
+      ? 'die ' + FLOW_EXTRA_MAX + ' stärksten von ' + rest.length + ' paaren ab 1 KB/s'
+      : 'alle ' + rest.length + ' paare ab 1 KB/s'}</em>`;
+    extra.append(subHead);
 
     for (const f of rest.slice(0, FLOW_EXTRA_MAX)) {
-      const row = document.createElement('div');
-      row.className = 'topo-flow';
-      const a = document.createElement('span');
-      a.className = 'topo-flow-name';
-      a.textContent = f.from;
-      const arrow = document.createElement('span');
-      arrow.className = 'topo-flow-arrow';
-      arrow.textContent = '→';
-      const b = document.createElement('span');
-      b.className = 'topo-flow-name';
-      b.textContent = f.to;
-      const via = document.createElement('span');
-      via.className = 'topo-flow-via';
-      via.textContent = f.service;
-      const rate = document.createElement('span');
-      rate.className = 'topo-flow-rate';
-      rate.textContent = fmtRateFlow(f.bytesPerSecond);
-      row.append(a, arrow, b, via, rate);
+      const row = h('div', 'topo-flow');
+      row.append(
+        h('span', 'topo-flow-name', f.from),
+        h('span', 'topo-flow-arrow', '→'),
+        h('span', 'topo-flow-name', f.to),
+        h('span', 'topo-flow-via', f.service),
+        h('span', 'topo-flow-rate', fmtRateFlow(f.bytesPerSecond))
+      );
       const spark = sparkSvg(f.spark);
       if (spark) row.append(spark);
       extra.append(row);
@@ -441,8 +448,7 @@
     topoEl.textContent = '';
 
     /* Öffentliche Kette: von außen bis in den Cluster */
-    const chain = document.createElement('div');
-    chain.className = 'topo-chain';
+    const chain = h('div', 'topo-chain');
     const steps = [
       { t: 'internet', s: 'besucher' },
       { t: 'cloudflare edge', s: 'dns · tls 1.3' },
@@ -451,13 +457,11 @@
       { t: 'cluster', s: data.running + '/' + data.total + ' aktiv' }
     ];
     steps.forEach((st, i) => {
-      const pill = document.createElement('span');
-      pill.className = 'topo-pill' + (i === steps.length - 1 ? ' core' : '');
-      pill.innerHTML = '<strong>' + esc(st.t) + '</strong><em>' + esc(st.s) + '</em>';
+      const pill = h('span', 'topo-pill' + (i === steps.length - 1 ? ' core' : ''));
+      pill.append(h('strong', null, st.t), h('em', null, st.s));
       chain.append(pill);
       if (i < steps.length - 1) {
-        const link = document.createElement('span');
-        link.className = 'topo-link';
+        const link = h('span', 'topo-link');
         link.setAttribute('aria-hidden', 'true');
         chain.append(link);
       }
@@ -466,36 +470,34 @@
 
     /* Backbone + Knoten-Spalten mit Gästen (live) */
     const MAX_CHIPS = 12;
-    const spine = document.createElement('div');
-    spine.className = 'topo-spine';
-    spine.innerHTML = '<span>vmbr0 — intern · zonenkonzept: erlaubt ist, was explizit erlaubt ist</span>';
+    const spine = h('div', 'topo-spine');
+    spine.append(h('span', null, 'vmbr0 — intern · zonenkonzept: erlaubt ist, was explizit erlaubt ist'));
     topoEl.append(spine);
 
-    const grid = document.createElement('div');
-    grid.className = 'topo-nodes';
+    const grid = h('div', 'topo-nodes');
     for (const n of data.nodes) {
-      const col = document.createElement('div');
-      col.className = 'topo-node' + (n.status === 'online' ? '' : ' off');
+      const col = h('div', 'topo-node' + (n.status === 'online' ? '' : ' off'));
       const guests = data.guests
         .filter((g) => g.node === n.name)
         .sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name)
           : a.status === 'running' ? -1 : 1));
       const up = guests.filter((g) => g.status === 'running').length;
 
-      const head = document.createElement('div');
-      head.className = 'topo-node-head';
+      const head = h('div', 'topo-node-head');
       const netTot = '↓' + (fmtRate(n.netIn) || '0') + ' ↑' + (fmtRate(n.netOut) || '0');
-      head.innerHTML = '<span class="dot ' + (n.status === 'online' ? 'up' : 'down') + '"></span>'
-        + '<strong>' + esc(n.name) + '</strong>'
-        + '<span class="topo-count" title="netz ø pro knoten (rate über 45 s)">' + esc(netTot) + '</span>'
-        + '<span class="topo-count">' + up + '/' + guests.length + '</span>';
+      const netEl = h('span', 'topo-count', netTot);
+      netEl.title = 'netz ø pro knoten (rate über 45 s)';
+      head.append(
+        h('span', 'dot ' + (n.status === 'online' ? 'up' : 'down')),
+        h('strong', null, n.name),
+        netEl,
+        h('span', 'topo-count', up + '/' + guests.length)
+      );
       col.append(head);
 
-      const list = document.createElement('div');
-      list.className = 'topo-guests';
+      const list = h('div', 'topo-guests');
       guests.slice(0, MAX_CHIPS).forEach((g) => {
-        const chip = document.createElement('span');
-        chip.className = 'topo-chip' + (g.status === 'running' ? '' : ' stopped');
+        const chip = h('span', 'topo-chip' + (g.status === 'running' ? '' : ' stopped'));
         const rIn = fmtRate(g.netIn), rOut = fmtRate(g.netOut);
         const netTxt = (rIn || rOut)
           ? ' · ' + (rIn ? '↓' + rIn : '') + (rOut ? (rIn ? ' ' : '') + '↑' + rOut : '') + '/s'
@@ -503,17 +505,16 @@
         chip.title = (g.type === 'lxc' ? 'container' : 'vm') + ' · ' + g.node
           + ' · ' + (g.status === 'running' ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped')
           + netTxt.replace(' · ', ' · netz ');
-        chip.innerHTML = '<span class="dot ' + (g.status === 'running' ? 'up' : 'down') + '"></span>'
-          + '<span class="topo-chip-name">' + esc(g.name) + '</span>'
-          + (netTxt ? '<span class="topo-chip-net">' + esc(netTxt.replace(' · ', '')) + '</span>' : '')
-          + '<span class="topo-chip-type">' + (g.type === 'lxc' ? 'ct' : 'vm') + '</span>';
+        chip.append(
+          h('span', 'dot ' + (g.status === 'running' ? 'up' : 'down')),
+          h('span', 'topo-chip-name', g.name)
+        );
+        if (netTxt) chip.append(h('span', 'topo-chip-net', netTxt.replace(' · ', '')));
+        chip.append(h('span', 'topo-chip-type', g.type === 'lxc' ? 'ct' : 'vm'));
         list.append(chip);
       });
       if (guests.length > MAX_CHIPS) {
-        const more = document.createElement('span');
-        more.className = 'topo-more';
-        more.textContent = '+' + (guests.length - MAX_CHIPS) + ' weitere';
-        list.append(more);
+        list.append(h('span', 'topo-more', '+' + (guests.length - MAX_CHIPS) + ' weitere'));
       }
       col.append(list);
       grid.append(col);
@@ -525,28 +526,27 @@
        Fleet-Poll alles wegwirft (`topoEl.textContent = ''`) — die Raten werden
        von `renderFlowRows` aus `lastFlows` nachgetragen. */
     const findGuest = (name) => data.guests.find((g) => g.name === name);
-    const flows = document.createElement('div');
-    flows.className = 'topo-flows';
+    const flows = h('div', 'topo-flows');
     flows.id = 'topo-flows';
-    const flowsHead = document.createElement('div');
-    flowsHead.className = 'topo-flows-head';
+    const flowsHead = h('div', 'topo-flows-head');
     flowsHead.id = 'topo-flows-head';
     flows.append(flowsHead);
     for (const f of FLOWS) {
-      const row = document.createElement('div');
-      row.className = 'topo-flow';
+      const row = h('div', 'topo-flow');
       row.dataset.from = f.from;
       row.dataset.to = f.to;
       const a = findGuest(f.from);
       const bNode = data.nodes.find((n) => n.name === f.to);
       const b = findGuest(f.to) || (bNode ? { status: bNode.status === 'online' ? 'running' : 'stopped', type: 'node' } : null);
       const dotCls = (x) => x ? (x.status === 'running' ? 'up' : 'down') : '';
-      row.innerHTML = '<span class="dot ' + dotCls(a) + '"></span>'
-        + '<span class="topo-flow-name">' + esc(f.from) + '</span>'
-        + '<span class="topo-flow-arrow">→</span>'
-        + '<span class="dot ' + dotCls(b) + '"></span>'
-        + '<span class="topo-flow-name">' + esc(f.to) + '</span>'
-        + '<span class="topo-flow-via">' + esc(f.via) + '</span>';
+      row.append(
+        h('span', 'dot ' + dotCls(a)),
+        h('span', 'topo-flow-name', f.from),
+        h('span', 'topo-flow-arrow', '→'),
+        h('span', 'dot ' + dotCls(b)),
+        h('span', 'topo-flow-name', f.to),
+        h('span', 'topo-flow-via', f.via)
+      );
       flows.append(row);
     }
     topoEl.append(flows);
@@ -554,8 +554,7 @@
     /* Und der Gegenpol: was gemessen wird, aber in keiner Zeile steht. Ohne
        diesen Block sähe der Bereich nach einem Umbau *leerer* aus als vorher —
        dabei zeigt er dann zum ersten Mal etwas Belegtes. */
-    const flowsExtra = document.createElement('div');
-    flowsExtra.className = 'topo-flows';
+    const flowsExtra = h('div', 'topo-flows');
     flowsExtra.id = 'topo-flows-extra';
     topoEl.append(flowsExtra);
 
@@ -588,7 +587,7 @@
   };
   if (voiceBtn) {
     if (!('speechSynthesis' in window)) voiceBtn.style.display = 'none';
-    voiceBtn.addEventListener('click', () => {
+    on(voiceBtn, 'click', () => {
       chatState.voice = !chatState.voice;
       voiceBtn.classList.toggle('on', chatState.voice);
       voiceBtn.textContent = chatState.voice ? '🔊 stimme' : '🔇 stimme';
@@ -598,15 +597,8 @@
 
   const appendChat = (cls, who, text) => {
     if (!chatOut) return null;
-    const div = document.createElement('div');
-    div.className = 'chat-line ' + cls;
-    const whoEl = document.createElement('span');
-    whoEl.className = 'who';
-    whoEl.textContent = who;
-    const body = document.createElement('span');
-    body.className = 'body';
-    body.textContent = text;
-    div.append(whoEl, body);
+    const div = h('div', 'chat-line ' + cls);
+    div.append(h('span', 'who', who), h('span', 'body', text));
     chatOut.append(div);
     chatOut.scrollTop = chatOut.scrollHeight;
     return div;
@@ -623,7 +615,7 @@
   if (chatOut && chatInput) {
     const HELLO = 'hallo! ich laufe lokal auf einer eigenen gpu — keine cloud, keine datenabgabe. ich beantworte fragen zu bastian, seinen projekten und seinen kenntnissen — frag einfach.';
     appendChat('ai', 'ki', HELLO);
-    chatInput.addEventListener('keydown', (ev) => {
+    on(chatInput, 'keydown', (ev) => {
       ev.stopPropagation();
       if (ev.key !== 'Enter' || !chatInput.value.trim()) return;
       // Ein zweites Enter während einer laufenden Anfrage darf keine zweite starten.
@@ -669,25 +661,27 @@
       { t: 'bereit. scroll für die details, oder frag das terminal unten.', c: 't-warn' }
     ];
     const render = (idx, partial) => {
-      let html = '';
+      let out = '';
       for (let i = 0; i <= idx; i++) {
         const line = LINES[i];
         const text = i === idx ? partial : line.t;
-        if (i > 0) html += '\n';
-        html += line.c ? '<span class="' + line.c + '">' + esc(text) + '</span>' : esc(text);
+        if (i > 0) out += '\n';
+        out += line.c ? escHtml`<span class="${line.c}">${text}</span>` : esc(text);
       }
-      return html;
+      return out;
     };
-    const paint = (html) => { bootEl.innerHTML = html + '<span class="cursor">▊</span>'; };
+    const paint = (markup) => { bootEl.innerHTML = markup + '<span class="cursor">▊</span>'; };
     if (reduced) {
-      bootEl.innerHTML = LINES.map((l) => l.c ? '<span class="' + l.c + '">' + esc(l.t) + '</span>' : esc(l.t)).join('\n');
+      bootEl.innerHTML = LINES.map((l) => l.c
+        ? escHtml`<span class="${l.c}">${l.t}</span>`
+        : esc(l.t)).join('\n');
     } else {
       let li = 0, ch = 0;
       const step = () => {
         if (li >= LINES.length) return;
         const line = LINES[li];
         if (ch <= line.t.length) {
-          paint(render(li, line.t.slice(0, ch)), false);
+          paint(render(li, line.t.slice(0, ch)));
           ch += 2;
           setTimeout(step, 14);
         } else {
@@ -705,11 +699,13 @@
     const HIST = [];
     let histIdx = -1;
     let chatMode = false;
-    const write = (html) => {
-      io2.out.insertAdjacentHTML('beforeend', html + '\n');
+    const write = (markup) => {
+      io2.out.insertAdjacentHTML('beforeend', markup + '\n');
       io2.out.scrollTop = io2.out.scrollHeight;
     };
-    const line = (text, cls) => write(cls ? '<span class="' + cls + '">' + esc(text) + '</span>' : esc(text));
+    const line = (text, cls) => write(cls
+      ? escHtml`<span class="${cls}">${text}</span>`
+      : esc(text));
 
     const CMDS = {
       help: () => {
@@ -783,9 +779,9 @@
         .then((r) => r.json())
         .then((d) => {
           const s = d.uptimeSeconds || 0;
-          const h = Math.floor(s / 3600);
-          const m = Math.floor((s % 3600) / 60);
-          line('up ' + (h > 0 ? h + ' hours, ' : '') + m + ' min — seit letztem deploy', 't-ok');
+          const hrs = Math.floor(s / 3600);
+          const mins = Math.floor((s % 3600) / 60);
+          line('up ' + (hrs > 0 ? hrs + ' hours, ' : '') + mins + ' min — seit letztem deploy', 't-ok');
         })
         .catch(() => line('status-endpoint nicht erreichbar', 't-warn')),
       projekte: () => {
@@ -868,7 +864,7 @@
       if (fn) fn();
       else line('befehl nicht gefunden: ' + cmd + ' — probier help', 't-warn');
     };
-    io2.in.addEventListener('keydown', (ev) => {
+    on(io2.in, 'keydown', (ev) => {
       if (ev.key === 'Enter') { run(io2.in.value); io2.in.value = ''; }
       else if (ev.key === 'ArrowUp') {
         if (histIdx > 0) { histIdx--; io2.in.value = HIST[histIdx] || ''; }
@@ -884,12 +880,10 @@
 
   /* ---------- E-Mail kopieren ---------- */
   const copyBtn = document.getElementById('copy-mail');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText('bastian@bastian-frese.de').then(() => {
-        copyBtn.textContent = 'kopiert ✓';
-        setTimeout(() => { copyBtn.textContent = 'kopieren'; }, 1800);
-      });
+  on(copyBtn, 'click', () => {
+    navigator.clipboard.writeText('bastian@bastian-frese.de').then(() => {
+      copyBtn.textContent = 'kopiert ✓';
+      setTimeout(() => { copyBtn.textContent = 'kopieren'; }, 1800);
     });
-  }
+  });
 })();
