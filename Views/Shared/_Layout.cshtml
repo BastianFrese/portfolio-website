@@ -3,11 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#070b10">
+  <meta name="theme-color" content="#0c1015">
   <title>@ViewData["Title"]</title>
+  <link rel="icon" href="~/favicon.svg" type="image/svg+xml">
+  <link rel="preload" as="font" type="font/woff2" href="~/fonts/plex-sans-600.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="~/fonts/plex-sans-400.woff2" crossorigin>
   <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/css/fx.css" asp-append-version="true">
 </head>
 <body>
+  <div id="fx-progress" aria-hidden="true"></div>
+  <div class="fx-aurora" aria-hidden="true"></div>
+  <div class="fx-grain" aria-hidden="true"></div>
+  <div class="fx-vignette" aria-hidden="true"></div>
   <nav class="nav">
     <div class="nav-inner">
       <a class="nav-brand" href="/">bastian@frese<span class="t">:~$</span></a>
@@ -31,5 +39,7 @@
     </div>
   </footer>
   <script src="~/js/site.js" asp-append-version="true" defer></script>
+  <script src="~/vendor/lenis.min.js" asp-append-version="true" defer></script>
+  <script src="~/js/fx.js" asp-append-version="true" defer></script>
 </body>
 </html>

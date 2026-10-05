@@ -1,0 +1,228 @@
+/* ============================================================
+   bastian-frese.de — Effekt-Layer (fx)
+   Lädt nach site.css und benutzt dessen Tokens.
+   Alles hier ist unter prefers-reduced-motion abgeschaltet —
+   die Seite muss auch ohne jede Animation vollständig lesbar sein.
+   ============================================================ */
+
+/* ---- Scroll-Fortschritt ---- */
+#fx-progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 100%; z-index: 80;
+  transform: scaleX(0); transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--signal), var(--steel));
+  box-shadow: 0 0 12px rgba(255, 138, 61, .55);
+  pointer-events: none;
+}
+
+/* ---- Grain + Vignette: die Seite bekommt eine Oberfläche ---- */
+.fx-grain {
+  position: fixed; inset: 0; z-index: 70; pointer-events: none;
+  opacity: .05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: fx-grain-shift 6s steps(6) infinite;
+}
+@keyframes fx-grain-shift {
+  0%   { transform: translate(0, 0); }
+  16%  { transform: translate(-2%, 1%); }
+  33%  { transform: translate(1%, -2%); }
+  50%  { transform: translate(-1%, 2%); }
+  66%  { transform: translate(2%, 1%); }
+  83%  { transform: translate(-2%, -1%); }
+  100% { transform: translate(0, 0); }
+}
+.fx-vignette {
+  position: fixed; inset: 0; z-index: 69; pointer-events: none;
+  background: radial-gradient(ellipse 125% 95% at 50% 45%, transparent 58%, rgba(0, 0, 0, .34) 100%);
+}
+
+/* ---- Ambient: der Grund, auf dem das Glas liegt ----
+   Zwei weiche Blobs, animiert ausschließlich über `transform`. Ohne sie
+   hätte `backdrop-filter` nichts zu brechen — Glasflächen sähen dann
+   einfach wie gewöhnliche dunkle Karten aus. */
+.fx-aurora {
+  position: fixed; inset: 0; z-index: -2; pointer-events: none; overflow: hidden;
+}
+.fx-aurora::before, .fx-aurora::after {
+  content: ''; position: absolute; border-radius: 50%;
+}
+/* Kein `filter: blur()` — die Radials sind schon weich, und ein Blur auf
+   einem bildschirmfüllenden fixen Element kostet nur Compositor-Zeit. */
+.fx-aurora::before {
+  width: 72vmax; height: 72vmax; left: -14vmax; top: -24vmax;
+  background: radial-gradient(circle, rgba(255, 138, 61, .26), transparent 54%);
+  animation: fx-drift-a 34s ease-in-out infinite alternate;
+}
+.fx-aurora::after {
+  width: 80vmax; height: 80vmax; right: -22vmax; top: 10vmax;
+  background: radial-gradient(circle, rgba(127, 168, 201, .26), transparent 58%);
+  animation: fx-drift-b 46s ease-in-out infinite alternate;
+}
+@keyframes fx-drift-a { to { transform: translate3d(6vmax, 9vmax, 0) scale(1.1); } }
+@keyframes fx-drift-b { to { transform: translate3d(-7vmax, -11vmax, 0) scale(1.07); } }
+
+/* ---- Boot-Overlay: die Seite startet wie ein System ---- */
+#boot-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .5s ease, visibility .5s;
+}
+#boot-overlay.gone { opacity: 0; visibility: hidden; }
+.boot-inner {
+  width: min(560px, 88vw);
+  font-family: var(--mono); font-size: 13px; line-height: 1.85; color: var(--fg-2);
+}
+.boot-inner .b-head {
+  color: var(--signal); margin-bottom: 10px; font-size: 12.5px;
+}
+.boot-inner .ln { opacity: 0; animation: boot-ln .25s ease forwards; }
+.boot-inner .ln .ok { color: var(--ok); }
+.boot-inner .ln .dim { color: var(--fg-3); }
+@keyframes boot-ln { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.boot-bar {
+  margin-top: 14px; height: 3px; background: var(--line); border-radius: 2px; overflow: hidden;
+}
+.boot-bar i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--signal), var(--steel));
+  animation: boot-fill 1.5s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+@keyframes boot-fill { to { width: 100%; } }
+.boot-skip {
+  margin-top: 14px; font-family: var(--mono); font-size: 11.5px; color: var(--fg-3);
+  transition: opacity .3s;
+}
+#boot-overlay.gone .boot-inner { opacity: 0; }
+
+/* ---- Hero: Lebendiges Netzwerk als Bühne ---- */
+.hero { position: relative; overflow: hidden; }
+#hero-net {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 0; opacity: .68; pointer-events: none;
+}
+.hero > .wrap { position: relative; z-index: 1; }
+
+/* Der Name: gelegentlicher Chromatischer Versatz — wie ein Signal,
+   das kurz die Synchronisation verliert. */
+h1 {
+  animation: fx-glitch 9s infinite;
+}
+@keyframes fx-glitch {
+  0%, 92%, 100% { text-shadow: none; transform: none; }
+  93% { text-shadow: -2px 0 var(--signal), 2px 0 var(--steel); transform: translateX(1px); }
+  94% { text-shadow: 3px 0 var(--steel), -3px 0 var(--signal); transform: translateX(-2px); }
+  95% { text-shadow: -1px 0 var(--signal), 1px 0 var(--steel); transform: none; }
+  96% { text-shadow: 2px 0 var(--steel), -2px 0 var(--signal); transform: translateX(1px); }
+  97% { text-shadow: none; transform: none; }
+}
+
+/* ---- Scanline-Sweep über Sektionen beim Eintritt ---- */
+.section { position: relative; }
+.section > .wrap::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--signal), transparent);
+  opacity: 0; pointer-events: none;
+}
+.section.fx-sweep > .wrap::before { animation: fx-sweep 1.1s ease-out; }
+@keyframes fx-sweep {
+  0% { opacity: .9; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(120px); }
+}
+
+/* ---- Karten: Spotlight am Zeiger + 3D-Kippung ---- */
+.card { transform-style: preserve-3d; will-change: transform; }
+.card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  opacity: 0; transition: opacity .3s ease;
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%),
+              rgba(255, 138, 61, .10), transparent 65%);
+}
+.card.fx-live::before { opacity: 1; }
+
+/* ---- Projekt-Screenshots: Rahmen wie ein Gerät, Zoom beim Zeigen ---- */
+.card-shot {
+  transition: transform .45s cubic-bezier(.2, .7, .3, 1), border-color .25s, filter .45s;
+  filter: saturate(.85) contrast(1.04);
+}
+.card:hover .card-shot { transform: scale(1.035); filter: saturate(1.1) contrast(1.06); }
+.card:hover .card-shot { border-color: var(--signal-dim); }
+
+/* ---- Zahlen zählen hoch ---- */
+[data-count] { font-variant-numeric: tabular-nums; }
+[data-count].fx-counted {
+  animation: fx-pop .5s ease-out;
+}
+@keyframes fx-pop {
+  0% { color: var(--signal); text-shadow: 0 0 14px rgba(255, 138, 61, .6); }
+  100% { color: inherit; text-shadow: none; }
+}
+
+/* ---- SVG-Diagramme zeichnen sich ---- */
+.fx-draw path, .fx-draw line, .fx-draw rect, .fx-draw polyline {
+  stroke-dasharray: var(--len, 400);
+  stroke-dashoffset: var(--len, 400);
+  animation: fx-draw 1.2s ease-out forwards;
+}
+.fx-draw text { animation: fx-fade .6s ease-out .7s backwards; }
+@keyframes fx-draw { to { stroke-dashoffset: 0; } }
+@keyframes fx-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- Gestaffelte Reveals ---- */
+.reveal { transition-delay: var(--fx-delay, 0ms); }
+
+/* ---- Laufband (Stack) ---- */
+.fx-marquee {
+  position: relative; overflow: hidden; margin-top: 34px;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  padding: 14px 0;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.fx-marquee-track {
+  display: flex; gap: 38px; width: max-content;
+  animation: fx-scroll 34s linear infinite;
+}
+.fx-marquee:hover .fx-marquee-track { animation-play-state: paused; }
+.fx-marquee span {
+  font-family: var(--mono); font-size: 13px; color: var(--fg-3); white-space: nowrap;
+}
+.fx-marquee span::after { content: ' ·'; color: var(--signal); }
+@keyframes fx-scroll { to { transform: translateX(-50%); } }
+
+/* ---- Statuszeile im Hero bekommt eine Anzeige ---- */
+.status-chip { position: relative; }
+
+/* ---- Lenis: die Resets, ohne die sich `scroll-behavior: smooth` aus
+   site.css mit dem Skript um dieselbe Scroll-Position streitet.
+
+   Anker ist `html.lenis`, nicht `html.lenis-smooth`: Lenis setzt die
+   `-smooth`-Klasse nur *während* eines Scrolls und nimmt sie danach wieder
+   weg. In der Ruhephase stünde die Seite dann wieder auf `smooth` — und
+   `scrollTop = x` würde von `scroll-behavior` mitanimiert, während Lenis
+   jeden Frame selbst schreibt. `lenis` bleibt dagegen stehen, solange das
+   Skript läuft, und verschwindet genau dann, wenn es das nicht tut
+   (reduzierte Bewegung, Skript fehlt) — dann greift wieder der native
+   weiche Sprung. ---- */
+html.lenis, html.lenis body { height: auto; }
+html.lenis { scroll-behavior: auto !important; }
+html.lenis [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* ============================================================
+   Abschalter. Wer Bewegung reduziert haben will, bekommt Ruhe —
+   keine halben Animationen.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  #fx-progress, .fx-grain, .fx-vignette, #boot-overlay { display: none !important; }
+  #hero-net { display: none; }
+  h1 { animation: none; }
+  .fx-aurora::before, .fx-aurora::after { animation: none; }
+  .card::before { display: none; }
+  .card { transform: none !important; }
+  .fx-marquee-track { animation: none; }
+  .fx-draw path, .fx-draw line, .fx-draw rect, .fx-draw polyline {
+    stroke-dasharray: none; stroke-dashoffset: 0; animation: none;
+  }
+  .fx-draw text { animation: none; }
+  .reveal { transition-delay: 0ms; }
+  [data-count].fx-counted { animation: none; }
+}

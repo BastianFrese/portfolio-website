@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="bastian-frese.de">
+  <rect width="32" height="32" rx="7" fill="#0c1015"/>
+  <path d="M9 10.5l5.5 5.5L9 21.5" fill="none" stroke="#ff8a3d" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="18" y="18.5" width="7" height="3.2" rx="1.6" fill="#7fa8c9"/>
+</svg>

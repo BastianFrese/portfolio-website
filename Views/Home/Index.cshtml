@@ -1,4 +1,5 @@
 <header class="hero">
+  <canvas id="hero-net" aria-hidden="true"></canvas>
   <div class="wrap">
     <div class="hero-grid">
       <div>
@@ -61,7 +62,7 @@
           <p class="tagline">liga-plattform · erdi-erc.de · seit 05/2026 · <a class="card-link" href="https://github.com/BastianFrese/Erdi-ERC" target="_blank" rel="noopener">quellcode</a></p>
           <ul class="facts">
             <li>ASP.NET Core MVC, EF Core + MySQL, OAuth-Anmeldung</li>
-            <li><strong>626 automatisierte Tests</strong>, <strong>66 Datenbank-Migrationen</strong></li>
+            <li><strong data-count>626 automatisierte Tests</strong>, <strong data-count>66 Datenbank-Migrationen</strong></li>
             <li>CI/CD: GitHub Actions → Release → Deployment → Health-Check</li>
             <li>Läuft auf eigenem Server hinter Reverse Proxy und verschlüsseltem Tunnel</li>
           </ul>
@@ -79,7 +80,7 @@
             <li>UDP-Telemetrie-Parsing, SQLite, Stream-Overlays für OBS</li>
             <li>OAuth mit verschlüsselt gespeicherten Zugangsdaten</li>
             <li>Installer mit Delta-Auto-Update — Nutzer aktualisieren sich selbst</li>
-            <li><strong>880 Tests</strong> in zwei Testprojekten, rund <strong>48.000 Zeilen C#</strong></li>
+            <li><strong data-count>880 Tests</strong> in zwei Testprojekten, rund <strong data-count>48.000 Zeilen C#</strong></li>
           </ul>
           <p class="point"><strong>Was das zeigt:</strong> End-to-end denken — von der Datenübertragung über die Oberfläche bis zum Update-Mechanismus auf fremden Rechnern.</p>
         </article>
@@ -105,7 +106,7 @@
             <span class="pill beta">im aufbau</span>
           </div>
           <h3>Telefon-Assistent</h3>
-          <svg class="card-shot" viewBox="0 0 460 290" role="img" aria-label="Schema: Ein Anrufer erreicht über die Telefonleitung den Telefon-Assistenten; der nimmt ab, begrüßt und schickt eine Benachrichtigung aufs Handy. Gestrichelt gezeichnet: der offene Rückweg, über den der Assistent den Anrufer noch nicht hört.">
+          <svg class="card-shot" viewBox="0 0 460 290" data-draw role="img" aria-label="Schema: Ein Anrufer erreicht über die Telefonleitung den Telefon-Assistenten; der nimmt ab, begrüßt und schickt eine Benachrichtigung aufs Handy. Gestrichelt gezeichnet: der offene Rückweg, über den der Assistent den Anrufer noch nicht hört.">
             <defs>
               <marker id="arrTel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="#6fae9a"></path>
@@ -159,7 +160,7 @@
         <div class="card reveal">
           <h3>Der Betrieb</h3>
           <ul class="facts">
-            <li>3-Knoten-Hypervisor-Cluster, rund <strong>30 virtuelle Systeme</strong></li>
+            <li>3-Knoten-Hypervisor-Cluster, rund <strong data-count>30 virtuelle Systeme</strong></li>
             <li>Reverse Proxy mit TLS-Terminierung, verschlüsselte Tunnels statt offener Ports</li>
             <li>Monitoring (Grafana, Prometheus, Loki) mit Verfügbarkeits-Checks und Alarmierung</li>
             <li>Konfigurationsmanagement (Ansible), Dienste mit systemd und Docker Compose</li>
@@ -168,7 +169,7 @@
         </div>
         <div class="card reveal">
           <h3>Der Zonenplan <span class="tagline">(schematisch, vereinfacht)</span></h3>
-          <svg viewBox="0 0 460 330" role="img" aria-label="Zonenplan: Internet, Edge, Anwendungen, Daten, Management, Gast — mit blockierten Pfaden aus der Gast-Zone">
+          <svg viewBox="0 0 460 330" data-draw role="img" aria-label="Zonenplan: Internet, Edge, Anwendungen, Daten, Management, Gast — mit blockierten Pfaden aus der Gast-Zone">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="#6fae9a"></path>
@@ -198,8 +199,8 @@
             <line x1="240" y1="104" x2="310" y2="131" class="flow"/>
             <line x1="140" y1="179" x2="270" y2="211" class="flow bad"/>
             <line x1="200" y1="255" x2="236" y2="239" class="flow bad"/>
-            <text x="140" y="278" class="zSmall bad">blockiert: kein Weg zu Daten &amp; Management</text>
-            <text x="320" y="278" class="zSmall">nur Administration von innen</text>
+            <text x="56" y="272" class="zSmall bad">blockiert: kein Weg zu Daten &amp; Management</text>
+            <text x="258" y="290" class="zSmall">nur Administration von innen</text>
           </svg>
         </div>
       </div>
@@ -328,6 +329,12 @@
         </div>
         <div><span class="chip-label">tests</span>
           <span class="chip">xUnit</span><span class="chip">CI-Pipelines</span>
+        </div>
+      </div>
+      <div class="fx-marquee reveal" aria-hidden="true">
+        <div class="fx-marquee-track">
+          <span>C# / .NET</span><span>ASP.NET Core MVC</span><span>EF Core</span><span>WPF</span><span>MySQL</span><span>SQLite</span><span>Proxmox</span><span>Nginx</span><span>Cloudflare Tunnel</span><span>GitHub Actions</span><span>Ansible</span><span>Docker Compose</span><span>systemd</span><span>Grafana</span><span>Prometheus</span><span>Loki</span><span>xUnit</span><span>Python</span><span>PowerShell</span><span>Bash</span>
+          <span>C# / .NET</span><span>ASP.NET Core MVC</span><span>EF Core</span><span>WPF</span><span>MySQL</span><span>SQLite</span><span>Proxmox</span><span>Nginx</span><span>Cloudflare Tunnel</span><span>GitHub Actions</span><span>Ansible</span><span>Docker Compose</span><span>systemd</span><span>Grafana</span><span>Prometheus</span><span>Loki</span><span>xUnit</span><span>Python</span><span>PowerShell</span><span>Bash</span>
         </div>
       </div>
     </div>
