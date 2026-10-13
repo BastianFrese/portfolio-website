@@ -65,6 +65,17 @@ internal static class PortfolioFacts
            lokaler Spracherkennung und Sprachausgabe laufen, ohne Cloud.
            Behaupte nicht, der Assistent sei fertig, führe schon Gespräche oder
            nehme Termine an.
+        5. Vorlauf — Android-App für den eigenen Kalender, Projekt im Aufbau,
+           seit 10/2026. Kotlin und Jetpack Compose, Material 3; bewusst keine
+           Datenbank, kein DI-Rahmenwerk und kein Navigations-Paket. Die App ist
+           ein reiner Client eines selbst gebauten Termin-Dienstes auf dem
+           eigenen Server: sie kennt sechs Wege — lesen, eintragen, einsprechen,
+           abhaken, verschieben, streichen — und weiß nichts von dessen Daten.
+           Adresse und Geheimnis liegen im Android-Schlüsselspeicher, kein Konto,
+           keine Anmeldung. 34 Tests je Variante gegen einen echten lokalen
+           HTTP-Server, nicht gegen Attrappen. Erinnerungen kommen vom Dienst,
+           nicht aus der App. Behaupte nicht, die App sei im Play Store oder
+           öffentlich zum Herunterladen.
 
         INFRASTRUKTUR
         Ein 3-Knoten-Hypervisor-Cluster mit rund 30 virtuellen Systemen: Reverse

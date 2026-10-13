@@ -146,6 +146,45 @@
           </ul>
           <p class="point"><strong>Das Ziel:</strong> Wenn ich nicht rangehe, nimmt der Assistent ab, versteht das Anliegen und schickt es mir als Nachricht. Annahme und Rückmeldung stehen — der offene Punkt ist der Rückweg, also dass der Assistent den Anrufer hört. Der Dialog soll mit lokaler Spracherkennung und Sprachausgabe laufen, ohne Cloud.</p>
         </article>
+        <article class="card reveal">
+          <div class="card-top">
+            <span class="card-index">05</span>
+            <span class="pill beta">im aufbau</span>
+          </div>
+          <h3>Vorlauf</h3>
+          <svg class="card-shot" viewBox="0 0 460 290" data-draw role="img" aria-label="Schema: Die Android-App Vorlauf auf dem Handy fragt den eigenen Termin-Dienst nach den nächsten Tagen, trägt neue Termine ein und hakt sie ab. Der Dienst verwandelt einen deutschen Satz in einen Kalendereintrag, legt ihn als Datei auf dem eigenen Server ab und erinnert über eine Benachrichtigung aufs Handy. Die App kennt den Dienst nur über sechs Wege.">
+            <defs>
+              <marker id="arrVor" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#6fae9a"></path>
+              </marker>
+            </defs>
+            <rect x="120" y="14" width="220" height="40" rx="6" class="zBox zMgmt"></rect>
+            <text x="230" y="32" class="zText">Handy</text>
+            <text x="230" y="46" class="zText zSmall">Vorlauf · Kotlin + Compose</text>
+            <line x1="230" y1="54" x2="230" y2="66" class="flowTel" style="marker-end: url(#arrVor)"></line>
+            <rect x="60" y="68" width="340" height="84" rx="6" class="zBox zApp"></rect>
+            <text x="230" y="88" class="zText">Eigener Termin-Dienst</text>
+            <text x="230" y="104" class="zText zSmall">versteht deutsche Sätze</text>
+            <text x="230" y="118" class="zText zSmall">sechs Wege, mehr kennt sie nicht</text>
+            <text x="230" y="132" class="zText zSmall">erinnert, bis abgehakt wird</text>
+            <line x1="230" y1="152" x2="230" y2="164" class="flowTel" style="marker-end: url(#arrVor)"></line>
+            <rect x="130" y="166" width="200" height="46" rx="6" class="zBox zEdge"></rect>
+            <text x="230" y="184" class="zText">Termine als Dateien</text>
+            <text x="230" y="200" class="zText zSmall">auf dem eigenen Server</text>
+            <line x1="400" y1="110" x2="400" y2="228" class="flowTel" style="marker-end: url(#arrVor)"></line>
+            <rect x="310" y="232" width="140" height="44" rx="6" class="zBox zNet"></rect>
+            <text x="380" y="250" class="zText">Benachrichtigung</text>
+            <text x="380" y="264" class="zText zSmall">kommt aufs Handy</text>
+          </svg>
+          <p class="tagline">android-app für den eigenen kalender · seit 10/2026</p>
+          <ul class="facts">
+            <li>Kotlin, Jetpack Compose, Material 3 — kein DI-Rahmenwerk, keine Datenbank, kein Navigations-Paket</li>
+            <li><strong data-count>34 Tests je Variante</strong> gegen einen echten lokalen HTTP-Server, nicht gegen Attrappen der eigenen Klasse</li>
+            <li>Die App weiß nichts von der Datenbank oder den Dateien des Dienstes — sie kennt sechs Wege und sonst nichts</li>
+            <li>Adresse und Geheimnis liegen im Android-Schlüsselspeicher; kein Konto, keine Anmeldung</li>
+          </ul>
+          <p class="point"><strong>Was das zeigt:</strong> Eine Oberfläche, die nur das tut, was sie muss. Die App trägt ein, liest und hakt ab — erinnern tut der Dienst, damit nicht zwei Stellen dieselbe Erinnerung schicken. Und weil die App nur die Schnittstelle kennt, konnte der kalender unter ihr komplett ausgetauscht werden, ohne dass die App davon etwas merkt.</p>
+        </article>
       </div>
     </div>
   </section>
