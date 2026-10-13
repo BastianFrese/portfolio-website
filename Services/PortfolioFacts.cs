@@ -65,7 +65,7 @@ internal static class PortfolioFacts
            lokaler Spracherkennung und Sprachausgabe laufen, ohne Cloud.
            Behaupte nicht, der Assistent sei fertig, führe schon Gespräche oder
            nehme Termine an.
-        5. Vorlauf — Android-App für den eigenen Kalender, Projekt im Aufbau,
+        5. Agent-Kalender — Android-App für den eigenen Kalender, Projekt im Aufbau,
            seit 10/2026. Kotlin und Jetpack Compose, Material 3; bewusst keine
            Datenbank, kein DI-Rahmenwerk und kein Navigations-Paket. Die App ist
            ein reiner Client eines selbst gebauten Termin-Dienstes auf dem
