@@ -7,3 +7,13 @@ screens/
 # flow-meter ist Python und läuft lokal wie auf den Knoten
 __pycache__/
 *.pyc
+
+# Secrets — nie ins Repo
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+appsettings.*.Local.json
+secrets/
