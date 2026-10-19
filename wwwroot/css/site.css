@@ -284,6 +284,9 @@ h2 {
   margin: 0 0 var(--s1); letter-spacing: -.022em; line-height: 1.12;
 }
 .section-sub { color: var(--fg-2); margin: 0; max-width: 68ch; }
+.section-note { color: var(--fg-3); font-family: var(--mono); font-size: 12.5px; margin: 20px 0 0; }
+.section-note a { color: var(--signal); text-decoration: underline; text-underline-offset: 3px; }
+.section-note a:hover { color: var(--fg); }
 
 /* ---- Projekt-Bento: Glasfliesen, die das Register behalten ---- */
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--s3); }

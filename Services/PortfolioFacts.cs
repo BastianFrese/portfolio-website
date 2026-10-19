@@ -41,7 +41,7 @@ internal static class PortfolioFacts
         PROJEKTE
         1. ERDI's Racing Community — Liga-Plattform für Sim-Racing, seit 05/2026,
            erdi-erc.de. ASP.NET Core MVC, EF Core mit MySQL, OAuth-Anmeldung,
-           340 automatisierte Tests, 66 Datenbank-Migrationen. Läuft auf eigenem
+           679 automatisierte Tests, 67 Datenbank-Migrationen. Läuft auf eigenem
            Server hinter Reverse Proxy und verschlüsseltem Tunnel; eine Community
            nutzt sie täglich, inklusive Server-API für eine Desktop-App.
         2. ERCTelemetry — Desktop-Anwendung für Renn-Simulationen in WPF, private
@@ -54,17 +54,15 @@ internal static class PortfolioFacts
            PDF-Rechnungserzeugung, Admin-Bereich. Gebaut und betrieben für einen
            realen Kunden mit echtem Bestellvolumen; der Betrieb ist seit 09/2026
            beendet, der Shop bleibt als Referenz erreichbar.
-        4. Telefon-Assistent — Projekt im Aufbau, seit 09/2026. Eigener SIP-Zugang
-           auf der eigenen Telefonleitung, kein Fremdanbieter. Der Assistent nimmt
-           Anrufe an und begrüßt den Anrufer selbst; jede Annahme meldet sich
-           sofort auf dem Handy. Ein selbst geschriebener Umschreiber im
-           Verbindungsaufbau hält private Adressen aus dem SIP-Handshake heraus.
-           Offen ist der Rückweg — der Assistent hört den Anrufer noch nicht.
-           Das Ziel: Anrufe, die er nicht selbst annehmen kann, landen beim
-           Assistenten und kommen als Nachricht bei ihm an; der Dialog soll mit
-           lokaler Spracherkennung und Sprachausgabe laufen, ohne Cloud.
-           Behaupte nicht, der Assistent sei fertig, führe schon Gespräche oder
-           nehme Termine an.
+        4. Telefon-Assistent — in Betrieb, seit 09/2026. Eigener SIP-Zugang auf
+           der eigenen Telefonleitung, kein Fremdanbieter. Der Assistent nimmt
+           Anrufe an, begrüßt und versteht das Anliegen mit lokaler
+           Spracherkennung, führt den Dialog und trägt Termine direkt in einen
+           Kalender ein; jede Annahme meldet sich sofort auf dem Handy. Ein
+           selbst geschriebener Umschreiber im Verbindungsaufbau hält private
+           Adressen aus dem SIP-Handshake heraus. Erkennung und Sprachausgabe
+           laufen auf eigener Hardware, ohne Cloud. Ausgehende Anrufe und der
+           Jarvis-Entwurf sind nicht gebaut — behaupte das nicht.
         5. Agent-Kalender — Android-App für den eigenen Kalender, Projekt im Aufbau,
            seit 10/2026. Kotlin und Jetpack Compose, Material 3; bewusst keine
            Datenbank, kein DI-Rahmenwerk und kein Navigations-Paket. Die App ist
@@ -72,13 +70,13 @@ internal static class PortfolioFacts
            eigenen Server: sie kennt sechs Wege — lesen, eintragen, einsprechen,
            abhaken, verschieben, streichen — und weiß nichts von dessen Daten.
            Adresse und Geheimnis liegen im Android-Schlüsselspeicher, kein Konto,
-           keine Anmeldung. 34 Tests je Variante gegen einen echten lokalen
+           keine Anmeldung. 80 Tests je Variante gegen einen echten lokalen
            HTTP-Server, nicht gegen Attrappen. Erinnerungen kommen vom Dienst,
            nicht aus der App. Behaupte nicht, die App sei im Play Store oder
            öffentlich zum Herunterladen.
 
         INFRASTRUKTUR
-        Ein 3-Knoten-Hypervisor-Cluster mit rund 30 virtuellen Systemen: Reverse
+        Ein 3-Knoten-Hypervisor-Cluster mit rund 35 laufenden virtuellen Systemen: Reverse
         Proxy mit TLS-Terminierung, verschlüsselte Tunnels statt offener Ports,
         Monitoring mit Grafana, Prometheus und Loki samt Verfügbarkeits-Checks und
         Alarmierung, Konfigurationsmanagement mit Ansible, Dienste unter systemd

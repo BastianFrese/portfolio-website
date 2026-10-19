@@ -48,7 +48,7 @@
     <div class="wrap">
       <div class="section-head reveal">
         <h2>projekte</h2>
-        <p class="section-sub">Drei Anwendungen aus echtem Betrieb — und ein Projekt, an dem ich gerade baue.</p>
+        <p class="section-sub">Vier Anwendungen aus echtem Betrieb — und ein Projekt, an dem ich gerade baue.</p>
       </div>
       <p id="health-board" class="health-board reveal">projekt-health wird geprüft …</p>
       <div class="grid">
@@ -62,7 +62,7 @@
           <p class="tagline">liga-plattform · erdi-erc.de · seit 05/2026 · <a class="card-link" href="https://github.com/BastianFrese/Erdi-ERC" target="_blank" rel="noopener">quellcode</a></p>
           <ul class="facts">
             <li>ASP.NET Core MVC, EF Core + MySQL, OAuth-Anmeldung</li>
-            <li><strong data-count>626 automatisierte Tests</strong>, <strong data-count>66 Datenbank-Migrationen</strong></li>
+            <li><strong data-count>679 automatisierte Tests</strong>, <strong data-count>67 Datenbank-Migrationen</strong></li>
             <li>CI/CD: GitHub Actions → Release → Deployment → Health-Check</li>
             <li>Läuft auf eigenem Server hinter Reverse Proxy und verschlüsseltem Tunnel</li>
           </ul>
@@ -80,7 +80,7 @@
             <li>UDP-Telemetrie-Parsing, SQLite, Stream-Overlays für OBS</li>
             <li>OAuth mit verschlüsselt gespeicherten Zugangsdaten</li>
             <li>Installer mit Delta-Auto-Update — Nutzer aktualisieren sich selbst</li>
-            <li><strong data-count>880 Tests</strong> in zwei Testprojekten, rund <strong data-count>48.000 Zeilen C#</strong></li>
+            <li><strong data-count>882 Tests</strong> in zwei Testprojekten, rund <strong data-count>48.000 Zeilen C#</strong></li>
           </ul>
           <p class="point"><strong>Was das zeigt:</strong> End-to-end denken — von der Datenübertragung über die Oberfläche bis zum Update-Mechanismus auf fremden Rechnern.</p>
         </article>
@@ -103,16 +103,13 @@
         <article class="card reveal">
           <div class="card-top">
             <span class="card-index">04</span>
-            <span class="pill beta">im aufbau</span>
+            <span class="pill ok">in betrieb</span>
           </div>
           <h3>Telefon-Assistent</h3>
-          <svg class="card-shot" viewBox="0 0 460 290" data-draw role="img" aria-label="Schema: Ein Anrufer erreicht über die Telefonleitung den Telefon-Assistenten; der nimmt ab, begrüßt und schickt eine Benachrichtigung aufs Handy. Gestrichelt gezeichnet: der offene Rückweg, über den der Assistent den Anrufer noch nicht hört.">
+          <svg class="card-shot" viewBox="0 0 460 290" data-draw role="img" aria-label="Schema: Ein Anrufer erreicht über die eigene SIP-Leitung den Telefon-Assistenten. Der nimmt ab, begrüßt, versteht den Anrufer mit lokaler Spracherkennung, führt das Gespräch und trägt den Termin in einen Kalender ein; eine Benachrichtigung geht sofort aufs Handy. Alle Modelle laufen lokal.">
             <defs>
               <marker id="arrTel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="#6fae9a"></path>
-              </marker>
-              <marker id="arrTelBad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="#e5534b"></path>
               </marker>
             </defs>
             <rect x="140" y="14" width="180" height="36" rx="6" class="zBox zNet"></rect>
@@ -123,28 +120,29 @@
             <text x="230" y="86" class="zText">Telefonleitung</text>
             <text x="230" y="100" class="zText zSmall">SIP · kein Fremdanbieter</text>
             <line x1="230" y1="112" x2="230" y2="126" class="flowTel"></line>
-            <rect x="90" y="130" width="280" height="76" rx="6" class="zBox zApp"></rect>
+            <rect x="70" y="130" width="320" height="90" rx="6" class="zBox zApp"></rect>
             <text x="230" y="150" class="zText">Telefon-Assistent</text>
-            <text x="230" y="168" class="zText zSmall">nimmt ab und begrüßt den Anrufer</text>
-            <text x="230" y="184" class="zText zSmall">Umschreiber hält private Adressen heraus</text>
-            <text x="230" y="200" class="zText zSmall">Spracherkennung lokal (geplant)</text>
-            <line x1="230" y1="206" x2="230" y2="220" class="flowTel"></line>
-            <rect x="110" y="224" width="240" height="40" rx="6" class="zBox zMgmt"></rect>
-            <text x="230" y="242" class="zText">Handy</text>
-            <text x="230" y="256" class="zText zSmall">Benachrichtigung, sofort</text>
-            <line x1="130" y1="90" x2="64" y2="90" class="flowTel bad"></line>
-            <line x1="64" y1="90" x2="64" y2="168" class="flowTel bad"></line>
-            <line x1="64" y1="168" x2="86" y2="168" class="flowTel bad"></line>
-            <text x="230" y="282" class="zText zSmall bad">gestrichelt = offen: der Assistent hört den Anrufer noch nicht</text>
+            <text x="230" y="168" class="zText zSmall">nimmt ab, begrüßt und hört zu</text>
+            <text x="230" y="184" class="zText zSmall">Spracherkennung lokal, führt den Dialog</text>
+            <text x="230" y="200" class="zText zSmall">Umschreiber hält private Adressen heraus</text>
+            <line x1="160" y1="220" x2="160" y2="236" class="flowTel"></line>
+            <line x1="300" y1="220" x2="300" y2="236" class="flowTel"></line>
+            <rect x="65" y="238" width="190" height="40" rx="6" class="zBox zMgmt"></rect>
+            <text x="160" y="256" class="zText">Handy</text>
+            <text x="160" y="270" class="zText zSmall">Benachrichtigung, sofort</text>
+            <rect x="265" y="238" width="130" height="40" rx="6" class="zBox zNet"></rect>
+            <text x="330" y="256" class="zText">Kalender</text>
+            <text x="330" y="270" class="zText zSmall">Termin eingetragen</text>
           </svg>
-          <p class="tagline">eigene telefonanlage · anrufannahme mit ansage · seit 09/2026</p>
+          <p class="tagline">eigene telefonanlage · anrufannahme mit dialog · seit 09/2026</p>
           <ul class="facts">
             <li>Eigener SIP-Zugang auf der eigenen Telefonleitung — kein Fremdanbieter, keine Zusatzkosten</li>
-            <li>Nimmt Anrufe an und begrüßt den Anrufer selbst</li>
+            <li>Nimmt Anrufe an, begrüßt und versteht das Anliegen mit lokaler Spracherkennung</li>
+            <li>Führt den Dialog und trägt Termine direkt in einen Kalender ein</li>
             <li>Jede Annahme meldet sich sofort auf dem Handy</li>
             <li>Ein eigener Umschreiber im Verbindungsaufbau hält private Adressen aus dem SIP-Handshake heraus</li>
           </ul>
-          <p class="point"><strong>Das Ziel:</strong> Wenn ich nicht rangehe, nimmt der Assistent ab, versteht das Anliegen und schickt es mir als Nachricht. Annahme und Rückmeldung stehen — der offene Punkt ist der Rückweg, also dass der Assistent den Anrufer hört. Der Dialog soll mit lokaler Spracherkennung und Sprachausgabe laufen, ohne Cloud.</p>
+          <p class="point"><strong>Was das zeigt:</strong> Telefonie ist ein Netzwerkdienst in Echtzeit — SIP, RTP, Codecs und ein Dialog mit lokalen Modellen. Der eingehende Weg läuft vom Klingeln bis zum Kalendereintrag; Erkennung und Sprachausgabe bleiben auf eigener Hardware, ohne Cloud.</p>
         </article>
         <article class="card reveal">
           <div class="card-top">
@@ -179,7 +177,7 @@
           <p class="tagline">der eigene kalender, mit dem agenten · seit 10/2026</p>
           <ul class="facts">
             <li>Kotlin, Jetpack Compose, Material 3 — kein DI-Rahmenwerk, keine Datenbank, kein Navigations-Paket</li>
-            <li><strong data-count>34 Tests je Variante</strong> gegen einen echten lokalen HTTP-Server, nicht gegen Attrappen der eigenen Klasse</li>
+            <li><strong data-count>80 Tests je Variante</strong> gegen einen echten lokalen HTTP-Server, nicht gegen Attrappen der eigenen Klasse</li>
             <li>Die App weiß nichts von der Datenbank oder den Dateien des Dienstes — sie kennt sechs Wege und sonst nichts</li>
             <li>Adresse und Geheimnis liegen im Android-Schlüsselspeicher; kein Konto, keine Anmeldung</li>
           </ul>
@@ -199,7 +197,7 @@
         <div class="card reveal">
           <h3>Der Betrieb</h3>
           <ul class="facts">
-            <li>3-Knoten-Hypervisor-Cluster, rund <strong data-count>30 virtuelle Systeme</strong></li>
+            <li>3-Knoten-Hypervisor-Cluster, rund <strong data-count>35 laufende virtuelle Systeme</strong></li>
             <li>Reverse Proxy mit TLS-Terminierung, verschlüsselte Tunnels statt offener Ports</li>
             <li>Monitoring (Grafana, Prometheus, Loki) mit Verfügbarkeits-Checks und Alarmierung</li>
             <li>Konfigurationsmanagement (Ansible), Dienste mit systemd und Docker Compose</li>
@@ -248,6 +246,7 @@
         <p>Das Netz war vollständig flach: Jedes System erreichte jedes andere — das Backup-Ziel genauso wie die Verwaltung. Ich habe diesen Befund gefunden, indem ich die Cluster-Konfiguration systematisch ausgelesen und gegen die Sicherheitsanforderungen geprüft habe, <strong>nicht</strong> durch einen Ausfall. Daraus ist der Zonenplan entstanden: Gast-Systeme mit der größten Exposition haben keinen Weg zu Daten und Management — und was nicht ausdrücklich erlaubt ist, ist verboten.</p>
         <p>Zwei Sätze, die ich daraus mitnehme: <strong>Blast Radius ist eine Entwurfsentscheidung, keine Eigenschaft.</strong> Und: Ein Schutz, der nicht greift, ist gefährlicher als gar keiner.</p>
       </div>
+      <p class="section-note reveal">Das Betriebsbuch dazu — Dienste, Netzweg, Sicherung — steht unter <a href="https://bastian-frese.info">bastian-frese.info</a>.</p>
     </div>
   </section>
 
@@ -317,6 +316,7 @@
         <span class="badge">0 offene ports</span>
         <span class="badge">0 externe requests</span>
       </p>
+      <p class="section-note reveal">Wie das Netz dahinter aufgebaut ist — Dienste, Zonen, Sicherung — steht im <a href="https://bastian-frese.info">Betriebsbuch</a>.</p>
     </div>
   </section>
 
