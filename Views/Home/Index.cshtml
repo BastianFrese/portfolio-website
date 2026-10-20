@@ -205,8 +205,8 @@
           </ul>
         </div>
         <div class="card reveal">
-          <h3>Der Zonenplan <span class="tagline">(schematisch, vereinfacht)</span></h3>
-          <svg viewBox="0 0 460 330" data-draw role="img" aria-label="Zonenplan: Internet, Edge, Anwendungen, Daten, Management, Gast — mit blockierten Pfaden aus der Gast-Zone">
+          <h3>Der Zonenplan <span class="tagline">(Zielbild, vereinfacht · Umsetzung nicht geprüft)</span></h3>
+          <svg viewBox="0 0 460 330" data-draw role="img" aria-label="Zonenplan als Zielbild: Internet, Edge, Anwendungen, Daten, Management, Gast — mit geplant blockierten Pfaden aus der Gast-Zone. Die Umsetzung ist nicht bestätigt.">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="#6fae9a"></path>
@@ -236,14 +236,14 @@
             <line x1="240" y1="104" x2="310" y2="131" class="flow"/>
             <line x1="140" y1="179" x2="270" y2="211" class="flow bad"/>
             <line x1="200" y1="255" x2="236" y2="239" class="flow bad"/>
-            <text x="56" y="272" class="zSmall bad">blockiert: kein Weg zu Daten &amp; Management</text>
+            <text x="56" y="272" class="zSmall bad">Zielbild: kein Weg zu Daten &amp; Management</text>
             <text x="258" y="290" class="zSmall">nur Administration von innen</text>
           </svg>
         </div>
       </div>
       <div class="story reveal">
         <h3>Was ich daraus gelernt habe</h3>
-        <p>Das Netz war vollständig flach: Jedes System erreichte jedes andere — das Backup-Ziel genauso wie die Verwaltung. Ich habe diesen Befund gefunden, indem ich die Cluster-Konfiguration systematisch ausgelesen und gegen die Sicherheitsanforderungen geprüft habe, <strong>nicht</strong> durch einen Ausfall. Daraus ist der Zonenplan entstanden: Gast-Systeme mit der größten Exposition haben keinen Weg zu Daten und Management — und was nicht ausdrücklich erlaubt ist, ist verboten.</p>
+        <p>Das Netz war vollständig flach: Jedes System erreichte jedes andere — das Backup-Ziel genauso wie die Verwaltung. Ich habe diesen Befund gefunden, indem ich die Cluster-Konfiguration systematisch ausgelesen und gegen die Sicherheitsanforderungen geprüft habe, <strong>nicht</strong> durch einen Ausfall. Daraus ist ein Zonenplan als Zielbild entstanden: Gast-Systeme mit der größten Exposition sollen keinen Weg zu Daten und Management haben — und was nicht ausdrücklich erlaubt ist, ist verboten. Die Grafik zeigt dieses Zielbild, nicht den gemessenen Ist-Zustand. Wie weit die Segmentierung technisch umgesetzt ist, habe ich noch nicht vollständig überprüft.</p>
         <p>Zwei Sätze, die ich daraus mitnehme: <strong>Blast Radius ist eine Entwurfsentscheidung, keine Eigenschaft.</strong> Und: Ein Schutz, der nicht greift, ist gefährlicher als gar keiner.</p>
       </div>
       <p class="section-note reveal">Das Betriebsbuch dazu — Dienste, Netzweg, Sicherung — steht unter <a href="https://bastian-frese.info">bastian-frese.info</a>.</p>
@@ -385,7 +385,7 @@
         <h2>kontakt</h2>
         <p class="section-sub">Fragen zum Portfolio, zu einem Projekt oder zu einer Stelle — schreiben Sie mir.</p>
       </div>
-      <p class="contact-mail reveal"><a href="mailto:bastian@@bastian-frese.de">bastian@@bastian-frese.de</a>
+      <p class="contact-mail reveal"><a href="mailto:bastian@bastian-frese.de">bastian@bastian-frese.de</a>
         <button id="copy-mail" class="contact-copy" type="button">kopieren</button>
       </p>
       <p class="contact-github reveal">quellcode der projekte: <a class="card-link" href="https://github.com/BastianFrese" target="_blank" rel="noopener">github.com/BastianFrese</a></p>
