@@ -43,3 +43,5 @@ wwwroot/css/site.css     Styles (kein Framework)
   `/etc/cloudflared/config.yml` auf LXC 109 (NPM)
 
 ⚠️ Enthält keine persönlichen Daten jenseits der Kontakt-E-Mail — öffentlich per Definition.
+
+Test des Deployment-Gates (25.10.2026).
