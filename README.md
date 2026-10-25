@@ -42,4 +42,4 @@ wwwroot/css/site.css     Styles (kein Framework)
 - Cloudflare-Tunnel-Ingress (`bastian-frese.de` → `http://192.168.100.4:80`) in
   `/etc/cloudflared/config.yml` auf LXC 109 (NPM)
 
-⚠️ Enthält keine persönlichen Daten jenseits der Kontakt-E-Mail — öffentlich per Definition.
+⚠️ Enthält keine persönlichen Daten jenseits der Kontakt-E-Mail — öffentlich per Definition.Test
