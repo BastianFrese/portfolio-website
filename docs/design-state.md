@@ -26,6 +26,12 @@ Updated by: agent session (Werdegang-Block, Schul-IT-Satz, Navigation auf schmal
 >   320 px Spaltenbreite, wo nur 272 px Platz sind. Fix: `minmax(min(320px, 100%), 1fr)`.
 >
 > **Vorherige Stände:**
+> - **29.10.2026:** ERDI-Zahlen neu gemessen: **731 Tests** (`dotnet test`, 29.10.2026,
+>   731 bestanden / 0 Fehler / 0 übersprungen) und **71 Migrationen**
+>   (`Erdi-ERC/Migrations/`, 71 Klassen `: Migration`). Vorher standen dort 679/67 aus
+>   der Messung vom 19.10.2026; dieselben Zahlen stehen in Anschreiben-Unterlagen,
+>   `Services/PortfolioFacts.cs` und der Terminalzeile in `wwwroot/js/site.js`.
+>   Alle vier Stellen wurden zusammen gezogen, damit Seite und PDF nicht auseinanderlaufen.
 > - **19.10.2026:** Alle Projektzahlen auf den gemessenen Stand: ERDI **679 Tests / 67
 >   Migrationen** (`dotnet test --list-tests`, 19.10.2026), ERCTelemetry **882 Tests**,
 >   Agent-Kalender **80 Tests je Variante** (Chronik 15.10.2026), Infrastruktur **35

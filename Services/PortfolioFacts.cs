@@ -41,7 +41,7 @@ internal static class PortfolioFacts
         PROJEKTE
         1. ERDI's Racing Community — Liga-Plattform für Sim-Racing, seit 05/2026,
            erdi-erc.de. ASP.NET Core MVC, EF Core mit MySQL, OAuth-Anmeldung,
-           679 automatisierte Tests, 67 Datenbank-Migrationen. Läuft auf eigenem
+           731 automatisierte Tests, 71 Datenbank-Migrationen. Läuft auf eigenem
            Server hinter Reverse Proxy und verschlüsseltem Tunnel; eine Community
            nutzt sie täglich, inklusive Server-API für eine Desktop-App.
         2. ERCTelemetry — Desktop-Anwendung für Renn-Simulationen in WPF, private

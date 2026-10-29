@@ -305,7 +305,7 @@
       { t: '[  OK  ] fleet-endpoint an proxmox cluster-api', c: 't-ok' },
       { t: '[  OK  ] ki-chat an lokale gpu (ollama)', c: 't-ok' },
       { t: '[  OK  ] projekte 5 · 4 in echtem betrieb · 1 im aufbau', c: 't-ok' },
-      { t: '[  OK  ] tests 679 automatisiert, grün', c: 't-ok' },
+      { t: '[  OK  ] tests 731 automatisiert, grün', c: 't-ok' },
       { t: '[  OK  ] ki lokal · 0 cloud-calls', c: 't-ok' },
       { t: '[  OK  ] offene ports: 0', c: 't-ok' },
       { t: '', c: '' },
