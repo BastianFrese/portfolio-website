@@ -4,19 +4,36 @@
 > Keep facts current, cite repository evidence, and update after each completed unit.
 > Mark claims confirmed, inferred, or unknown. The working rules live in the design-system skill.
 
-Last updated: 2026-10-19
-Updated by: agent session (Zahlenabgleich + Abgrenzung zur Laborsseite)
+Last updated: 2026-10-24
+Updated by: agent session (Werdegang-Block, Schul-IT-Satz, Navigation auf schmalen Geräten)
 
-> **Stand 19.10.2026 — was sich geändert hat:**
-> - Alle Projektzahlen sind auf den gemessenen Stand gebracht: ERDI **679 Tests / 67
+> **Stand 24.10.2026 — was sich geändert hat (Bewerbungsrunde, vor dem Versand):**
+> - **Neuer Abschnitt `#werdegang`** direkt nach dem Hero: links ein Zeitstrahl
+>   (`.cv`/`.cv-row`/`.cv-date`/`.cv-text`/`.cv-note`), rechts die Karte „Für die
+>   Ausbildung". Grund: die Seite war ein Portfolio ohne jeden Bezug zur
+>   Bewerbung — `werdegang`, `ausbildung`, `verfügbar`, `bewerbung` kamen im
+>   gesamten View **null Mal** vor. Ein Recruiter, der nur die URL bekommt, sah
+>   Technik, aber keinen Bewerber.
+> - **Schul-IT-Satz** ergänzt (die Ausschreibung nennt „Praxisphasen in der IT der
+>   Verwaltung sowie in der **Schul-IT des WMK**" wörtlich; der Brief behauptet
+>   Benutzerschulung, die Seite belegte sie nicht).
+> - **Navigation auf schmalen Geräten repariert.** Vorher: acht Links, 549 px Inhalt
+>   bei 184 px Platz — **2 von 8 sichtbar**, der Kontakt-CTA lag außerhalb des
+>   Bildes. Jetzt: eigener Streifen unter der Brand, Kontakt-CTA `position: sticky`
+>   am rechten Rand und damit **immer sichtbar**.
+> - **Horizontaler Seiten-Überlauf bei 320 px behoben** (vorbestehend, live gemessen:
+>   369 px Inhalt bei 320 px Viewport). Ursache: `minmax(320px, 1fr)` erzwang
+>   320 px Spaltenbreite, wo nur 272 px Platz sind. Fix: `minmax(min(320px, 100%), 1fr)`.
+>
+> **Vorherige Stände:**
+> - **19.10.2026:** Alle Projektzahlen auf den gemessenen Stand: ERDI **679 Tests / 67
 >   Migrationen** (`dotnet test --list-tests`, 19.10.2026), ERCTelemetry **882 Tests**,
 >   Agent-Kalender **80 Tests je Variante** (Chronik 15.10.2026), Infrastruktur **35
->   laufende Systeme** (`pvesh`, 16.10.2026).
-> - Die Telefon-Karte beschreibt wieder den echten Stand: nimmt an, versteht mit lokaler
->   Spracherkennung, führt den Dialog, trägt Termine ein.
-> - **Rollenabgrenzung zu `bastian-frese.info`:** Projektzahlen leben nur hier; die
->   Laborsseite beschreibt den Betrieb. Gegenlinks in `#infrastruktur`, `#diese-seite`
->   und im Fuß (`Views/Shared/_Layout.cshtml`).
+>   laufende Systeme** (`pvesh`, 16.10.2026). Die Telefon-Karte beschreibt wieder den
+>   echten Stand: nimmt an, versteht mit lokaler Spracherkennung, führt den Dialog,
+>   trägt Termine ein. **Rollenabgrenzung zu `bastian-frese.info`:** Projektzahlen
+>   leben nur hier; die Laborsseite beschreibt den Betrieb. Gegenlinks in
+>   `#infrastruktur`, `#diese-seite` und im Fuß (`Views/Shared/_Layout.cshtml`).
 
 ---
 
@@ -195,13 +212,14 @@ ein Umbau des halben Stylesheets ohne sichtbaren Gewinn.
 
 | Name | Value | Used for |
 | --- | --- | --- |
-| (namenlos) | `max-width: 560px` | Karten und Kacheln einspaltig |
+| (namenlos) | `max-width: 560px` | Karten und Kacheln einspaltig; `.cv-row` einspaltig (24.10.2026) |
 | (namenlos) | `max-width: 620px` | kleinere Anpassungen |
+| (namenlos) | `max-width: 700px` | Navigation: eigene Zeile, Kontakt-CTA sticky (24.10.2026) |
 | (namenlos) | `max-width: 860px` | Raster |
 | (namenlos) | `max-width: 900px` | Raster |
-| (namenlos) | `max-width: 940px` | `.hero-grid` einspaltig (`site.css:150`) |
+| (namenlos) | `max-width: 940px` | `.hero-grid` und `.grid-werdegang` einspaltig (`site.css:150`) |
 
-Fünf Breakpoints, keine benannt, kein gemeinsames Raster. Bei einem Umbau auf gemeinsame
+Sechs Breakpoints, keine benannt, kein gemeinsames Raster. Bei einem Umbau auf gemeinsame
 Werte achten.
 
 ### Z-index layers
@@ -223,7 +241,8 @@ Alle in `wwwroot/css/site.css` (S) oder `wwwroot/css/fx.css` (F).
 
 | Component | Path | Reused on | States implemented | Notes / fragility |
 | --- | --- | --- | --- | --- |
-| `.nav` / `.nav-links` | S:113-137 | beide Seiten | hover, `:focus-visible` (global), `.cta` | `overflow-x: auto` bei schmaler Breite — horizontal scrollender Streifen |
+| `.nav` / `.nav-links` | S:113-153 | beide Seiten | hover, `:focus-visible` (global), `.cta` | `overflow-x: auto` bei schmaler Breite — horizontal scrollender Streifen. **Ab 700 px eigene Zeile, `.cta` per `position: sticky` am rechten Rand** (24.10.2026) — vorher lag der Kontakt-CTA außerhalb des Bildes |
+| `.cv` / `.cv-row` / `.cv-date` / `.cv-text` / `.cv-note` | S:346-372 | #werdegang | statisch | Zeitstrahl des Werdegangs. `.cv-row` ist ein Grid (9,5 rem Termin + Text), unter 560 px einspaltig. `.grid-werdegang` = 1,05fr/0,95fr, unter 940 px einspaltig |
 | `.hero` + `.hero-grid` | S:148-150 | Startseite | statisch | 2 Spalten, ab 940 px einspaltig |
 | `#hero-net` (Canvas) | F:99-103, `fx.js` | Startseite | pointer, `prefers-reduced-motion` → `display:none` | Tiefensortierung; **Kanten an Welt-Distanz verknüpfen**, nicht an projizierter (sonst Flackern) |
 | `.term` / `.term-bar` / `.term-out` / `.term-in` | S, `site.js` | Hero-Boot, Terminal, KI-Chat | Eingabe, Scroll, hover-Rahmen (Zweig) | **Drei Verwendungen mit unterschiedlicher Funktion** — wiederverwendet, nicht verallgemeinert |
@@ -241,7 +260,7 @@ Alle in `wwwroot/css/site.css` (S) oder `wwwroot/css/fx.css` (F).
 
 | Route / page | Path | Purpose | Status |
 | --- | --- | --- | --- |
-| `/` | `Views/Home/Index.cshtml`, `Controllers/HomeController.cs:7-8` | Startseite: Hero, projekte, infrastruktur, fleet, der-weg, ki, stack, kontakt | live |
+| `/` | `Views/Home/Index.cshtml`, `Controllers/HomeController.cs:7-8` | Startseite: Hero, **werdegang**, projekte, infrastruktur, fleet, der-weg, ki, stack, kontakt | live |
 | `/impressum` | `Views/Home/Impressum.cshtml`, `Controllers/HomeController.cs:10-11` | Impressum und Datenschutz | live |
 | `/health/live` | `Program.cs:129` | Smoke-Test der Pipeline | live |
 | `/api/status`, `/api/fleet`, `/api/fleet/stream` | `Program.cs:130,136,151` | Betriebs-/Fleet-Daten | live |
@@ -316,6 +335,8 @@ Nur zwei `data`-Hooks im ganzen Projekt: `data-count`, `data-draw`.
 | 6 | Leerer Zustand der Messkacheln ist ein Strich (`—`) ohne Erklärung | `Views/Home/Index.cshtml:24,40` | **minor** | Zustand benennen („wird gemessen …" bzw. „nicht verfügbar") statt `—` |
 | 7 | Fünf namenlose Breakpoints (560/620/860/900/940) ohne gemeinsames Raster | `wwwroot/css/site.css` | **minor** | Auf 3–4 benannte Werte zusammenziehen, wenn ohnehin umgebaut wird |
 | 8 | Spacing-Token (`--s1…--s8`) existieren, werden aber nicht überall benutzt (Literale `12px`, `34px`, `38px`, `7px`, `14px`) | `wwwroot/css/site.css` | **minor** | Beim Umbau der betroffenen Regel auf den nächstliegenden Token ziehen |
+| 9 | **Die Health-Anzeige meldet „down" für erreichbare Dienste.** Am 24.10.2026 gemessen: `/api/health` liefert für **alle vier** Prüfungen `ok:false, ms:0, status:0` — obwohl `erdi-erc.de` und `loren-flowers.shop` live HTTP 200 liefern und der **gleiche `HealthService`-Quelltext**, im selben Container gebaut und ausgeführt, `200/200/200` meldet. `ms:0` heißt: die Exception wird geworfen, bevor die Zeit gemessen wird. Der `catch` verschluckt sie **ohne Log** — im Journal steht nichts. Betroffen ist auch der eigene Chip `bastian-frese.de down` auf der Seite, die sonst behauptet, alles laufe. | `Services/HealthService.cs:44-49` (der `catch`), `Program.cs:173-183` | **major** | Exception im `catch` protokollieren (`app.Logger.LogWarning`) statt zu verschlucken; danach die Ursache messen. **Nicht geklärt**, warum die laufende Instanz (Deploy 20.10.2026) sich vom Nachbau unterscheidet — der Nachbau lief als `www-data` aus `/var/www/portfolio/current` mit derselben env-Datei |
+| 10 | `cspguard.js` meldet drei `style="marker-end: …"`-Attribute im SVG (`.flowTel`) | `Views/Home/Index.cshtml` (Zeilen 207, 213, 217) | **minor** | **Vorbestehend** (am 24.10.2026 per `git stash` gegen `HEAD` gegengeprüft: gleiche drei Fehlschläge, nur andere Zeilennummern). Die CSP verwirft `style`-Attribute still — der Marker `arrVor` fehlt in der veröffentlichten Grafik. Fix: den Marker per CSSOM setzen oder die Linien anders zeichnen |
 
 **Nicht geprüft (ehrlich):** kein Browser, keine Messung. Breakpoints, Kontrast,
 Tastaturweg und 320-px-Verhalten sind hier **statisch** beurteilt, nicht gerendert.
@@ -348,6 +369,7 @@ Append-only. One row per unit of work, newest first.
 
 | Date | Unit | Files touched | Tokens added or changed | Verified by |
 | --- | --- | --- | --- | --- |
+| 2026-10-24 | **Bewerbungsrunde** — `#werdegang`-Abschnitt, Schul-IT-Satz, Navigation auf schmalen Geräten, 320-px-Überlauf behoben | `Index.cshtml` (+49), `_Layout.cshtml` (+3/−2), `site.css` (+45/−3) | **keine neuen** — nur vorhandene (`--signal`, `--fg-2`, `--fg-3`, `--hair`, `--s2`, `--s3`, `--panel`, `--r-sm`) | `dotnet publish` grün; CDP-Messung bei 320/390/700/900/1440 px: **kein Seiten-Überlauf**, CTA immer sichtbar, keine toten Anker, genau ein `h1`, Reveal feuert (opacity 1); `cspguard.js` unverändert 9/3 (3 Fehlschläge **vorbestehend**, mit `git stash` gegengeprüft) |
 | 2026-10-05 | Optik-Runde (Stand `main`) — Schriften self-hosted, Lenis, fx-Layer | `site.css`, `fx.css`, `fx.js`, `site.js`, `_Layout.cshtml` | Tokens eingeführt (dieses `:root`) | Commit `c68fc30` |
 | 2026-10-06 | Optik-Runde 2 (Stand `30d8ac3`, **nicht** auf `main`) | `fx.js` +170, `site.js` +175, `fx.css` +47, `site.css` +36, `Index.cshtml` 20, `_Layout.cshtml` 2, `PortfolioFacts.cs` 2 | **keine** — Token unverändert | Commit `30d8ac3`, nicht gepusht |
 

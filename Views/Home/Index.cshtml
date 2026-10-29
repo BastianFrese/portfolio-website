@@ -44,6 +44,51 @@
 </header>
 
 <main>
+  <section id="werdegang" class="section">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>werdegang</h2>
+        <p class="section-sub">Schulabschluss, Ausbildung, und was seitdem passiert. Ich suche einen Ausbildungsplatz als Fachinformatiker für Systemintegration.</p>
+      </div>
+      <div class="grid grid-werdegang">
+        <div class="cv reveal">
+          <div class="cv-row">
+            <span class="cv-date">09/2015 – 07/2019</span>
+            <div class="cv-text">Gymnasium — Alte Landesschule Korbach</div>
+          </div>
+          <div class="cv-row">
+            <span class="cv-date">07/2022</span>
+            <div class="cv-text">Qualifizierender Realschulabschluss (Mittlere Reife) — Louis-Peter-Schule Korbach</div>
+          </div>
+          <div class="cv-row">
+            <span class="cv-date">07/2022 – 07/2024</span>
+            <div class="cv-text">Orientierungsphase nach dem Abschluss: autodidaktische Vertiefung in Softwareentwicklung und Systemadministration</div>
+          </div>
+          <div class="cv-row">
+            <span class="cv-date">08/2024 – 02/2026</span>
+            <div class="cv-text">Ausbildung zum Fachinformatiker für Anwendungsentwicklung — KRAUSE-Systems GmbH &amp; Co. KG, Alsfeld. Vorzeitig beendet.
+              <p class="cv-note">Die Zeit danach ist in den Projekten sichtbar — dort läuft, was ich gebaut habe.</p>
+            </div>
+          </div>
+          <div class="cv-row">
+            <span class="cv-date">seit 02/2026</span>
+            <div class="cv-text">Aufbau und Betrieb eigener Anwendungen und eigener Infrastruktur — produktiv, mit echten Nutzern</div>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h3>Für die Ausbildung</h3>
+          <ul class="facts">
+            <li><strong>Verfügbar ab 01.08.2027</strong> — zum Ausbildungsstart. Ein Praktikum davor bringe ich gern mit.</li>
+            <li><strong>Umzug zum Jahresende</strong> — nach Bad Sooden-Allendorf; Eschwege liegt dann in unmittelbarer Nähe.</li>
+            <li><strong>Technik erklären ist Alltag, nicht Theorie</strong> — der Telefonassistent nimmt Anrufe an und führt den Dialog in Alltagssprache, der Shop läuft für einen echten Kunden, die Community hat echte Nutzer, und der KI-Chat auf dieser Seite beantwortet Fragen von Besuchern, die nicht technisch sind.</li>
+            <li><strong>Schul-IT liegt mir</strong> — Anwendungen mit echten Nutzern, denen man Dinge erklären muss, betreibe ich seit 2026.</li>
+          </ul>
+          <p class="point"><strong>Was das zeigt:</strong> Ich bewerbe mich auf einen Ausbildungsplatz, nicht auf eine fertige Berufserfahrung. Der Betrieb fehlt mir — die Verantwortung dafür übe ich seit 2026 an Systemen, die ohne mich weiterlaufen würden, weil sie überwacht und gesichert sind.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="projekte" class="section">
     <div class="wrap">
       <div class="section-head reveal">
@@ -254,14 +299,13 @@
     <div class="wrap">
       <div class="section-head reveal">
         <h2>fleet — live aus dem rack</h2>
-        <p class="section-sub">Alle VMs und LXCs aus dem 3-Knoten-Cluster, direkt aus der Proxmox-API gelesen. Der Status ist echt — was du siehst, ist der Zustand, in dem sich meine Systeme gerade wirklich befinden. Die Traffic-Raten in der Topologie darunter sind ebenfalls gemessen und nicht geschätzt: ein passiver Mitschnitt an den Bridges der Knoten.</p>
+        <p class="section-sub">Direkt aus der Proxmox-API gelesen: wie viele Systeme laufen, wie die drei Knoten ausgelastet sind. Bewusst nur Aggregate — keine Hostnamen, keine Einzelzuordnung. Der Status ist echt; was hier steht, ist der Zustand, in dem sich meine Systeme gerade befinden.</p>
       </div>
       <p id="fleet-meta" class="fleet-meta reveal">fleet wird geladen …</p>
-      <div id="topo" class="topo reveal" aria-label="Live-Netzwerk-Topologie"></div>
+      <div id="topo" class="topo reveal" aria-label="Der öffentliche Weg von außen bis in den Cluster"></div>
       <div id="node-stats" class="node-stats reveal"></div>
-      <div id="fleet-grid" class="fleet-grid reveal">
-      </div>
-      <p class="term-hint reveal">quelle: proxmox-ve cluster-api · cache 45 s · gestoppte systeme werden ehrlich als gestoppt angezeigt · flow-raten: mitschnitt an den knoten-bridges, gemessen statt geschätzt</p>
+      <p id="fleet-summary" class="fleet-meta reveal"></p>
+      <p class="term-hint reveal">quelle: proxmox-ve cluster-api · cache 5 s · gestoppte systeme zählen als gestoppt, nicht als fehlend</p>
     </div>
   </section>
 

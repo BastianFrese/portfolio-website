@@ -136,6 +136,22 @@ body::after {
 .nav-links a.cta { color: var(--signal); border: 1px solid var(--signal-dim); }
 .nav-links a.cta:hover { background: rgba(255, 138, 61, .08); }
 
+/* ---- Navigation auf schmalen Geräten ----
+   Bei 390 px passen acht Links nicht in eine Zeile (549 px Inhalt bei 184 px Platz).
+   Statt die Links abzuschneiden, bekommen sie eine eigene Zeile. Der Kontakt-CTA
+   bleibt sichtbar: position:sticky hält ihn am rechten Rand des Streifens, während
+   die übrigen Links darunter wegscrollen. */
+@media (max-width: 700px) {
+  .nav-inner { flex-wrap: wrap; gap: 4px var(--s3); padding: 10px var(--s3); }
+  .brand-full { display: none; }
+  .nav-links { flex: 1 1 100%; margin-left: 0; }
+  .nav-links a.cta {
+    position: sticky; right: 0;
+    background: var(--panel);
+    box-shadow: -16px 0 16px -8px var(--panel);
+  }
+}
+
 /* ---- Scroll-Reveal ---- */
 .reveal { opacity: 0; transform: translateY(12px); transition: opacity .5s ease, transform .5s ease; }
 .reveal.in { opacity: 1; transform: none; }
@@ -289,7 +305,10 @@ h2 {
 .section-note a:hover { color: var(--fg); }
 
 /* ---- Projekt-Bento: Glasfliesen, die das Register behalten ---- */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--s3); }
+/* min() in der Untergrenze: bei 320 px Viewport sonst 320 px Spaltenbreite plus
+   Seitenpadding — die Seite lief dann horizontal aus dem Bild (live gemessen:
+   369 px Inhalt bei 320 px Viewport). */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: var(--s3); }
 .card {
   position: relative; display: flex; flex-direction: column;
   background: var(--glass);
@@ -342,6 +361,30 @@ h2 {
   color: var(--fg-2); font-size: 13.5px;
 }
 .point strong { color: var(--fg); font-weight: 600; }
+
+/* ---- Werdegang: Zeitstrahl links, Bewerbungs-Karte rechts ---- */
+.grid-werdegang { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); align-items: stretch; }
+@media (max-width: 940px) { .grid-werdegang { grid-template-columns: 1fr; } }
+
+.cv { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.cv-row {
+  display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: var(--s3);
+  padding: var(--s2) 0; border-top: 1px solid var(--hair);
+}
+.cv-row:first-child { border-top: 0; padding-top: 0; }
+/* Die letzte Zeile klebt unten, damit beide Spalten auf derselben Höhe enden. */
+.cv-row:last-child { flex: 1; align-content: start; }
+.cv-date {
+  font-family: var(--mono); font-size: 12.5px; color: var(--signal);
+  letter-spacing: .02em; padding-top: 2px;
+}
+.cv-text { font-size: 14.5px; color: var(--fg-2); }
+.cv-text strong { color: var(--fg); font-weight: 600; }
+.cv-note { margin: 6px 0 0; font-size: 13.5px; color: var(--fg-3); }
+@media (max-width: 560px) {
+  .cv-row { grid-template-columns: 1fr; gap: 4px; }
+  .cv-date { padding-top: 0; }
+}
 
 /* ---------- Live-Netzwerk-Topologie ---------- */
 .topo {

@@ -92,43 +92,27 @@
   }
 
   /* ---------- Fleet (PVE-API): Nodes + Gäste ---------- */
-  const fleetGrid = document.getElementById('fleet-grid');
+  const fleetSummary = document.getElementById('fleet-summary');
   const fleetMeta = document.getElementById('fleet-meta');
   const nodeStats = document.getElementById('node-stats');
   const mFleet = document.getElementById('m-fleet');
   let lastFleet = null;
 
-  const fmtUptime = (s) => {
-    if (!s || s < 60) return s ? '< 1 min' : '—';
-    const d = Math.floor(s / 86400);
-    const hrs = Math.floor((s % 86400) / 3600);
-    const mins = Math.floor((s % 3600) / 60);
-    if (d > 0) return d + 'd ' + hrs + 'h';
-    if (hrs > 0) return hrs + 'h ' + mins + 'min';
-    return mins + ' min';
-  };
   const fmtGb = (bytes) => Math.round(bytes / (1024 * 1024 * 1024)) + ' GB';
-  // bytes/s → kompakt (unter 1 KB/s → null, nicht anzeigen)
-  const fmtRate = (b) => {
-    if (!b || b < 1024) return null;
-    if (b < 1048576) return Math.round(b / 1024) + 'K';
-    if (b < 1073741824) return (b / 1048576).toFixed(1) + 'M';
-    return (b / 1073741824).toFixed(1) + 'G';
-  };
 
   const pctClass = (p) => p >= 90 ? 'crit' : p >= 65 ? 'hot' : '';
 
   const renderNodes = (nodes) => {
     if (!nodeStats) return;
     nodeStats.textContent = '';
-    for (const n of nodes) {
+    nodes.forEach((n, i) => {
       const cpuPct = Math.round(n.cpu * 100);
       const memPct = n.maxMem ? Math.round(n.mem / n.maxMem * 100) : 0;
       const box = h('div', 'nbar');
       const head = h('div', 'nbar-head');
       head.append(
-        h('strong', null, n.name),
-        h('span', null, n.status + ' · up ' + fmtUptime(n.uptimeSeconds))
+        h('strong', null, 'knoten ' + (i + 1)),
+        h('span', null, n.status)
       );
       box.append(head);
       for (const row of [
@@ -153,39 +137,25 @@
         box.append(line);
       }
       nodeStats.append(box);
-    }
+    });
   };
 
   const renderFleet = (data) => {
-    if (!fleetGrid || !fleetMeta) return;
+    if (!fleetMeta) return;
     lastFleet = data;
-    renderTopology(data);
+    renderChain(data);
     if (mFleet) mFleet.innerHTML = escHtml`${data.running}/${data.total} <span>aktiv</span>`;
     if (data.nodes) renderNodes(data.nodes);
-    fleetGrid.textContent = '';
-    for (const g of data.guests) {
-      const up = g.status === 'running';
-      const tile = h('div', 'tile');
-      const head = h('div', 'tile-head');
-      const nameEl = h('span', 'tile-name', g.name);
-      nameEl.title = g.name;
-      head.append(
-        h('span', 'dot ' + (up ? 'up' : 'down')),
-        nameEl,
-        h('span', 'tile-type', g.type)
-      );
-      const sub = h('div', 'tile-sub');
-      sub.append(
-        h('span', null, g.node),
-        h('span', null, up ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped')
-      );
-      tile.append(head, sub);
-      fleetGrid.append(tile);
+    if (fleetSummary) {
+      const vm = data.vm || { running: 0, total: 0 };
+      const ctCount = data.ct || { running: 0, total: 0 };
+      fleetSummary.textContent = 'vm ' + vm.running + '/' + vm.total
+        + ' · container ' + ctCount.running + '/' + ctCount.total;
     }
     fleetMeta.innerHTML = escHtml`fleet: <span class="t-ok">${data.running}/${data.total} systeme aktiv</span> · quelle: proxmox cluster-api · live · alle 5 s`;
   };
 
-  if (fleetGrid) {
+  if (fleetMeta) {
     // Echtzeit statt Polling: Server-Sent Events. EventSource verbindet sich nach einem
     // Abbruch selbst wieder — wir müssen nur das Ereignis verarbeiten und ehrlich
     // markieren, wenn der Strom gerade unterbrochen ist.
@@ -220,234 +190,15 @@
       .catch(() => { healthBoard.textContent = 'health-checks nicht erreichbar.'; });
   }
 
-  /* ---------- Echte Flow-Messung (Raten aus den Knoten-Bridges) ---------- */
-  // Zwei Werte, die hier nie verwechselt werden dürfen:
-  //   null → „in diesem Slot nicht gemessen"  →  `—`
-  //   0    → „gemessen, und da war nichts"    →  `0`
-  // Die kuratierte Liste beschreibt die Architektur; die Raten kommen aus der
-  // Messung. Was nicht gemessen wurde, steht als `—` da — nicht als 0.
-  let lastFlows = null;
-
-  /* Kuratierte Abhängigkeiten. `prox`, nicht `prox1`: die Fleet-API wird von
-     `.23` geholt (Phase-0-Befund) — mit `prox1` bliebe die Zeile für immer `—`
-     und würde den falschen Empfänger nennen. */
-  const FLOWS = [
-    { from: 'proxy-manager', to: 'erdi-ws', via: 'ingress · liga' },
-    { from: 'proxy-manager', to: 'portfolio-ws', via: 'ingress · diese seite' },
-    { from: 'proxy-manager', to: 'cloud-storage', via: 'ingress · cloud.*' },
-    { from: 'erdi-ws', to: 'prod-db', via: 'mysql · liga' },
-    { from: 'loren-shop', to: 'prod-db', via: 'mysql · shop' },
-    { from: 'portfolio-ws', to: 'media', via: 'ollama-api · ki-chat' },
-    { from: 'portfolio-ws', to: 'prox', via: 'pve cluster-api · fleet' },
-    { from: 'truenas', to: 'cloud-storage', via: 'cifs · nextcloud-storage' },
-    { from: 'monitoring', to: 'alle knoten', via: 'prometheus · scrape' },
-    { from: 'adguard', to: 'alle gäste', via: 'dns · auflösung' },
-    { from: 'uptime-kuma', to: 'alle gäste', via: 'ping · erreichbarkeit' }
-  ];
-  const AGGREGATE = FLOWS.filter((f) => f.to.indexOf('alle ') === 0).map((f) => f.from);
-
-  const FLOW_EXTRA_MIN = 1024;  // ab 1 KB/s lohnt die Zusatzzeile
-  const FLOW_EXTRA_MAX = 8;     // mehr wäre eine Wand aus mDNS-Einträgen
-
-  // Raten gehen nie durch `esc` (das würde bei einer Zahl werfen) — sie werden
-  // fertig formatiert als `textContent` eingesetzt.
-  const fmtRateFlow = (b) => {
-    if (b === null || b === undefined) return '—';
-    if (b === 0) return '0';
-    return fmtRate(b) || '<1K';
-  };
-
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-  const SPARK_W = 64, SPARK_H = 14;
-
-  /* Verlauf über 20 Slots. `null` reißt die Linie auf: eine Lücke im Verlauf
-     ist etwas anderes als ein Wert von 0 — genau dieser Unterschied ist der
-     Zweck der ganzen Messung. Skaliert wird je Zeile; eine gemeinsame Achse
-     würde 700 B/s neben 62 KB/s zu einer geraden Linie plattdrücken.
-     Geometrie über SVG-Attribute, Styling über CSS-Klassen: `style="…"` ist
-     unter `style-src 'self'` wirkungslos. */
-  const sparkSvg = (vals) => {
-    if (!Array.isArray(vals) || vals.length === 0) return null;
-    const seen = vals.filter((v) => typeof v === 'number');
-    if (seen.length === 0) return null;
-    const max = Math.max.apply(null, seen) || 1;
-
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + SPARK_W + ' ' + SPARK_H);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.setAttribute('class', 'topo-flow-spark');
-    svg.setAttribute('aria-hidden', 'true');
-
-    const xAt = (i) => vals.length === 1 ? SPARK_W / 2 : (i / (vals.length - 1)) * SPARK_W;
-    const yAt = (v) => (SPARK_H - 1) - (v / max) * (SPARK_H - 2);
-
-    let run = [];
-    const flush = () => {
-      if (run.length > 1) {
-        const poly = document.createElementNS(SVG_NS, 'polyline');
-        poly.setAttribute('points', run.join(' '));
-        svg.append(poly);
-      } else if (run.length === 1) {
-        // Ein einzelner Messwert ist ein Punkt, keine Linie.
-        const dot = document.createElementNS(SVG_NS, 'circle');
-        dot.setAttribute('cx', run[0].split(',')[0]);
-        dot.setAttribute('cy', run[0].split(',')[1]);
-        dot.setAttribute('r', '1.5');
-        svg.append(dot);
-      }
-      run = [];
-    };
-    vals.forEach((v, i) => {
-      if (typeof v !== 'number') { flush(); return; }
-      run.push(xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1));
-    });
-    flush();
-    return svg;
-  };
-
-  /* Summe einer Aggregat-Zeile („alle knoten", „alle gäste"). Der Verlauf
-     summiert nur Slots, in denen **alle** beteiligten Paare gemessen haben —
-     eine Teilsumme als Kurve zu zeichnen hieße, eine Zahl zu zeigen, die es
-     so nie gab. */
-  const aggregate = (name, flows) => {
-    const parts = flows.filter((f) => f.from === name || f.to === name);
-    if (parts.length === 0) return null;
-    let total = null;
-    for (const p of parts) {
-      if (typeof p.bytesPerSecond === 'number') total = (total || 0) + p.bytesPerSecond;
-    }
-    const len = Array.isArray(parts[0].spark) ? parts[0].spark.length : 0;
-    const spark = [];
-    for (let i = 0; i < len; i += 1) {
-      spark.push(parts.every((p) => Array.isArray(p.spark) && typeof p.spark[i] === 'number')
-        ? parts.reduce((s, p) => s + p.spark[i], 0)
-        : null);
-    }
-    return { bytesPerSecond: total, spark: spark, count: parts.length };
-  };
-
-  /* Von einer Aggregat-Zeile absorbiert — außer der andere Endpunkt ist
-     `extern` oder unbekannt: fremder Verkehr gehört in den Zusatzblock, nicht
-     unter „prometheus · scrape". */
-  const absorbed = (f) => AGGREGATE.some((name) => {
-    const other = f.from === name ? f.to : (f.to === name ? f.from : null);
-    return other !== null && other !== 'extern' && other !== 'unbekannt-lan';
-  });
-
-  const paintRow = (row, hit, isAgg) => {
-    const alt = row.querySelector('.topo-flow-rate');
-    const altSpark = row.querySelector('.topo-flow-spark');
-    if (altSpark) altSpark.remove();
-    const rate = alt || h('span', 'topo-flow-rate');
-    if (!alt) row.append(rate);
-    const leer = !hit || hit.bytesPerSecond === null || hit.bytesPerSecond === undefined;
-    rate.classList.toggle('none', leer);
-    rate.textContent = leer ? '—' : fmtRateFlow(hit.bytesPerSecond);
-    rate.title = leer
-      ? 'in den letzten 15 min keine messung'
-      : (isAgg
-        ? 'summe beider richtungen · ' + hit.count + ' beteiligte paare'
-        : 'gemessen an den knoten-bridges · dienst: ' + hit.service);
-    if (leer) return;
-    const spark = sparkSvg(hit.spark);
-    if (spark) row.append(spark);
-  };
-
-  const renderFlowRows = () => {
-    const box = document.getElementById('topo-flows');
-    if (!box) return;                       // Topologie steht noch nicht
-    const head = document.getElementById('topo-flows-head');
-    const extra = document.getElementById('topo-flows-extra');
-
-    const d = lastFlows;
-    const live = !!d && d.stale !== true;
-    const flows = live && Array.isArray(d.flows) ? d.flows : [];
-
-    // Kanonisch nach IP sortiert — die gesuchte Richtung kann also vertauscht
-    // sein. Deshalb wird in beide Richtungen gesucht.
-    const match = (a, b) => flows.find(
-      (f) => (f.from === a && f.to === b) || (f.from === b && f.to === a)) || null;
-
-    const claimed = [];
-    for (const row of box.querySelectorAll('.topo-flow')) {
-      const a = row.dataset.from, b = row.dataset.to, isAgg = b.indexOf('alle ') === 0;
-      let hit = null;
-      if (live) {
-        hit = isAgg ? aggregate(a, flows) : match(a, b);
-        if (hit && !isAgg) claimed.push(hit.from + '\u0000' + hit.to);
-      }
-      paintRow(row, hit, isAgg);
-    }
-
-    if (head) {
-      if (!d) {
-        head.innerHTML = '<strong>bekannte abhängigkeiten</strong><em>messung wird geladen …</em>';
-      } else if (!live) {
-        head.innerHTML = '<strong>bekannte abhängigkeiten</strong><em>keine daten — die messung an den knoten-bridges liefert gerade nichts</em>';
-      } else {
-        // `measuredNodes` bleibt bis zu 15 min nach dem letzten Push gefüllt.
-        // Es ist deshalb **kein** Live-Status und wird nur hier, im nicht-stalen
-        // Zweig, überhaupt genannt.
-        const measured = (d.measuredNodes || []).map((n) => String(n).toLowerCase());
-        const fehlend = ((lastFleet && lastFleet.nodes) ? lastFleet.nodes : [])
-          .map((n) => n.name)
-          .filter((n) => measured.indexOf(String(n).toLowerCase()) < 0);
-        const sek = Math.max(0, Math.round((Date.now() - Date.parse(d.updatedAt)) / 1000));
-        head.innerHTML = escHtml`<strong>bekannte abhängigkeiten</strong><em>live gemessen an den knoten-bridges · stand vor ${sek} s · messpunkte: ${measured.join(', ') || 'keine'}${fehlend.length ? ' · ohne messpunkt: ' + fehlend.join(', ') : ''}</em>`;
-      }
-    }
-
-    if (!extra) return;
-    extra.textContent = '';
-    if (!live) return;
-
-    const taken = new Set(claimed);
-    const rest = flows.filter((f) => {
-      if (taken.has(f.from + '\u0000' + f.to)) return false;
-      if (absorbed(f)) return false;
-      return typeof f.bytesPerSecond === 'number' && f.bytesPerSecond >= FLOW_EXTRA_MIN;
-    }).sort((a, b) => b.bytesPerSecond - a.bytesPerSecond);
-    if (rest.length === 0) return;
-
-    const subHead = h('div', 'topo-flows-head');
-    subHead.innerHTML = escHtml`<strong>gemessen, aber nicht in der liste</strong><em>${rest.length > FLOW_EXTRA_MAX
-      ? 'die ' + FLOW_EXTRA_MAX + ' stärksten von ' + rest.length + ' paaren ab 1 KB/s'
-      : 'alle ' + rest.length + ' paare ab 1 KB/s'}</em>`;
-    extra.append(subHead);
-
-    for (const f of rest.slice(0, FLOW_EXTRA_MAX)) {
-      const row = h('div', 'topo-flow');
-      row.append(
-        h('span', 'topo-flow-name', f.from),
-        h('span', 'topo-flow-arrow', '→'),
-        h('span', 'topo-flow-name', f.to),
-        h('span', 'topo-flow-via', f.service),
-        h('span', 'topo-flow-rate', fmtRateFlow(f.bytesPerSecond))
-      );
-      const spark = sparkSvg(f.spark);
-      if (spark) row.append(spark);
-      extra.append(row);
-    }
-  };
-
-  // Eigener Takt: `/api/flows` braucht die PVE-API nicht, und die beiden
-  // Endpunkte haben unabhängige Fehlerfälle. Ein Ladefehler ist kein leeres
-  // Netz — beides wird als `keine daten` gezeigt, nicht als Nullzeile.
-  const loadFlows = () => {
-    fetch('/api/flows', { cache: 'no-store' })
-      .then((r) => { if (!r.ok) throw 0; return r.json(); })
-      .then((d) => { lastFlows = d; renderFlowRows(); })
-      .catch(() => { lastFlows = { stale: true, flows: [] }; renderFlowRows(); });
-  };
-
-  /* ---------- Live-Netzwerk-Topologie ---------- */
+  /* ---------- Öffentliche Kette (ohne interne Namen) ---------- */
+  // Zeigt nur, was ohnehin öffentlich erklärt ist: Internet, Cloudflare, Tunnel,
+  // Proxy, Cluster. Gastnamen, Knotennamen und Zuordnungen bleiben draußen.
   const topoEl = document.getElementById('topo');
-  const renderTopology = (data) => {
-    if (!topoEl || !data || !data.nodes) return;
+  const renderChain = (data) => {
+    if (!topoEl || !data) return;
 
     topoEl.textContent = '';
 
-    /* Öffentliche Kette: von außen bis in den Cluster */
     const chain = h('div', 'topo-chain');
     const steps = [
       { t: 'internet', s: 'besucher' },
@@ -467,107 +218,7 @@
       }
     });
     topoEl.append(chain);
-
-    /* Backbone + Knoten-Spalten mit Gästen (live) */
-    const MAX_CHIPS = 12;
-    const spine = h('div', 'topo-spine');
-    spine.append(h('span', null, 'vmbr0 — intern · zonenkonzept: erlaubt ist, was explizit erlaubt ist'));
-    topoEl.append(spine);
-
-    const grid = h('div', 'topo-nodes');
-    for (const n of data.nodes) {
-      const col = h('div', 'topo-node' + (n.status === 'online' ? '' : ' off'));
-      const guests = data.guests
-        .filter((g) => g.node === n.name)
-        .sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name)
-          : a.status === 'running' ? -1 : 1));
-      const up = guests.filter((g) => g.status === 'running').length;
-
-      const head = h('div', 'topo-node-head');
-      const netTot = '↓' + (fmtRate(n.netIn) || '0') + ' ↑' + (fmtRate(n.netOut) || '0');
-      const netEl = h('span', 'topo-count', netTot);
-      netEl.title = 'netz ø pro knoten (rate über 45 s)';
-      head.append(
-        h('span', 'dot ' + (n.status === 'online' ? 'up' : 'down')),
-        h('strong', null, n.name),
-        netEl,
-        h('span', 'topo-count', up + '/' + guests.length)
-      );
-      col.append(head);
-
-      const list = h('div', 'topo-guests');
-      guests.slice(0, MAX_CHIPS).forEach((g) => {
-        const chip = h('span', 'topo-chip' + (g.status === 'running' ? '' : ' stopped'));
-        const rIn = fmtRate(g.netIn), rOut = fmtRate(g.netOut);
-        const netTxt = (rIn || rOut)
-          ? ' · ' + (rIn ? '↓' + rIn : '') + (rOut ? (rIn ? ' ' : '') + '↑' + rOut : '') + '/s'
-          : '';
-        chip.title = (g.type === 'lxc' ? 'container' : 'vm') + ' · ' + g.node
-          + ' · ' + (g.status === 'running' ? 'up ' + fmtUptime(g.uptimeSeconds) : 'stopped')
-          + netTxt.replace(' · ', ' · netz ');
-        chip.append(
-          h('span', 'dot ' + (g.status === 'running' ? 'up' : 'down')),
-          h('span', 'topo-chip-name', g.name)
-        );
-        if (netTxt) chip.append(h('span', 'topo-chip-net', netTxt.replace(' · ', '')));
-        chip.append(h('span', 'topo-chip-type', g.type === 'lxc' ? 'ct' : 'vm'));
-        list.append(chip);
-      });
-      if (guests.length > MAX_CHIPS) {
-        list.append(h('span', 'topo-more', '+' + (guests.length - MAX_CHIPS) + ' weitere'));
-      }
-      col.append(list);
-      grid.append(col);
-    }
-    topoEl.append(grid);
-
-    /* Bekannte Abhängigkeiten — kuratiert; die Raten kommen aus der Messung.
-       Der Container hat eine feste id, weil `renderTopology` bei jedem
-       Fleet-Poll alles wegwirft (`topoEl.textContent = ''`) — die Raten werden
-       von `renderFlowRows` aus `lastFlows` nachgetragen. */
-    const findGuest = (name) => data.guests.find((g) => g.name === name);
-    const flows = h('div', 'topo-flows');
-    flows.id = 'topo-flows';
-    const flowsHead = h('div', 'topo-flows-head');
-    flowsHead.id = 'topo-flows-head';
-    flows.append(flowsHead);
-    for (const f of FLOWS) {
-      const row = h('div', 'topo-flow');
-      row.dataset.from = f.from;
-      row.dataset.to = f.to;
-      const a = findGuest(f.from);
-      const bNode = data.nodes.find((n) => n.name === f.to);
-      const b = findGuest(f.to) || (bNode ? { status: bNode.status === 'online' ? 'running' : 'stopped', type: 'node' } : null);
-      const dotCls = (x) => x ? (x.status === 'running' ? 'up' : 'down') : '';
-      row.append(
-        h('span', 'dot ' + dotCls(a)),
-        h('span', 'topo-flow-name', f.from),
-        h('span', 'topo-flow-arrow', '→'),
-        h('span', 'dot ' + dotCls(b)),
-        h('span', 'topo-flow-name', f.to),
-        h('span', 'topo-flow-via', f.via)
-      );
-      flows.append(row);
-    }
-    topoEl.append(flows);
-
-    /* Und der Gegenpol: was gemessen wird, aber in keiner Zeile steht. Ohne
-       diesen Block sähe der Bereich nach einem Umbau *leerer* aus als vorher —
-       dabei zeigt er dann zum ersten Mal etwas Belegtes. */
-    const flowsExtra = h('div', 'topo-flows');
-    flowsExtra.id = 'topo-flows-extra';
-    topoEl.append(flowsExtra);
-
-    // Raten erst hier: die Messung tickt in einem eigenen Takt (60 s), die
-    // Topologie in einem anderen. Ohne diesen Aufruf stünden die Raten bis zum
-    // nächsten Flow-Poll leer, wenn die Fleet-Antwort später eintrifft.
-    renderFlowRows();
   };
-
-  if (topoEl) {
-    loadFlows();
-    setInterval(loadFlows, 60000);
-  }
 
   /* ---------- KI-Chat (Ollama) + Stimme ---------- */
   const chatState = { history: [], busy: false, voice: false };
@@ -724,10 +375,13 @@
         if (d && d.textContent) line(d.textContent, 't-ok');
         else line('fleet noch nicht geladen — scroll zur fleet-sektion', 't-warn');
         if (lastFleet && lastFleet.nodes) {
-          for (const n of lastFleet.nodes) {
-            line('  ' + n.name.padEnd(8) + Math.round(n.cpu * 100) + '% cpu · '
-              + (n.maxMem ? Math.round(n.mem / n.maxMem * 100) : 0) + '% ram · up '
-              + fmtUptime(n.uptimeSeconds), 't-dim');
+          lastFleet.nodes.forEach((n, i) => {
+            line('  knoten ' + (i + 1) + '  ' + Math.round(n.cpu * 100) + '% cpu · '
+              + (n.maxMem ? Math.round(n.mem / n.maxMem * 100) : 0) + '% ram', 't-dim');
+          });
+          if (lastFleet.vm) {
+            line('  vm ' + lastFleet.vm.running + '/' + lastFleet.vm.total
+              + ' · container ' + lastFleet.ct.running + '/' + lastFleet.ct.total, 't-dim');
           }
         }
       },
@@ -760,10 +414,10 @@
         line('shell     : portfolio-shell 1.0');
         if (info) {
           line('cluster   : ' + info.running + '/' + info.total + ' gäste aktiv', 't-ok');
-          for (const n of info.nodes || []) {
-            line('  ' + n.name.padEnd(8) + Math.round(n.cpu * 100) + '% cpu · '
-              + (n.maxMem ? Math.round(n.mem / n.maxMem * 100) : 0) + '% ram · up ' + fmtUptime(n.uptimeSeconds));
-          }
+          (info.nodes || []).forEach((n, i) => {
+            line('  knoten ' + (i + 1) + '  ' + Math.round(n.cpu * 100) + '% cpu · '
+              + (n.maxMem ? Math.round(n.mem / n.maxMem * 100) : 0) + '% ram');
+          });
         } else {
           line('cluster   : (fleet noch nicht geladen)', 't-dim');
         }
